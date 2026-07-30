@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local working notes (not part of the project)
+TODO.md
+
+# Secrets / local environment
+.env
+.env.local
+*.session
+*.session-journal
