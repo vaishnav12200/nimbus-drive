@@ -1,0 +1,59 @@
+name: nimbus-drive
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nimbus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nimbus}
+      POSTGRES_DB: ${POSTGRES_DB:-nimbus}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      # `api` waits on this, so a migration never races an unready server.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nimbus} -d ${POSTGRES_DB:-nimbus}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Optional: token revocation and cross-replica rate limits. The API runs
+    # without it, with those two features degraded.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-nimbus}:${POSTGRES_PASSWORD:-nimbus}@db:5432/${POSTGRES_DB:-nimbus}
+      REDIS_URL: redis://redis:6379/0
+      TEMP_DIR: /var/lib/nimbus/tmp
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      # Large uploads are staged here. A named volume keeps them off the
+      # container's writable layer and caps them with the host's disk, not the
+      # image's.
+      - upload_tmp:/var/lib/nimbus/tmp
+
+volumes:
+  db_data:
+  upload_tmp:
