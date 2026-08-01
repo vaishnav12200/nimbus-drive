@@ -104,7 +104,7 @@ leaks a file listing, not your files.
 | Component | Where it runs |
 |---|---|
 | **Client** | Flutter app — GitHub Releases + F-Droid |
-| **Backend** | Self-hosted FastAPI (Docker) on your own VPS |
+| **Backend** | FastAPI (Docker) on Render |
 | **Database** | PostgreSQL (Docker or managed) |
 | **Storage** | Your own Telegram channel — zero backend persistence of bytes |
 
@@ -463,8 +463,9 @@ nimbus-drive/
     └── SETUP.md
 ```
 
-> **Note:** the repo currently holds a bare Flutter scaffold at the root. Moving it into
-> `mobile/` and adding `backend/` is the first task — see the project TODO.
+> **Status:** the backend is built and tested; `mobile/` is still the bare Flutter scaffold.
+> See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the backend as implemented and
+> [`docs/SETUP.md`](docs/SETUP.md) for self-hosting it.
 
 ---
 
