@@ -78,6 +78,14 @@ async def _database() -> AsyncIterator[None]:
     engine = create_async_engine(settings.database_url)
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+
+        # drop_all before create_all, because create_all only creates *missing
+        # tables* — it will not add a column to a table that already exists. A
+        # test database built before a model gained a column would otherwise
+        # keep failing with "column does not exist" until someone dropped it by
+        # hand, and only on machines that had run the suite before. Rebuilding
+        # makes the schema always match the models.
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(
             text(

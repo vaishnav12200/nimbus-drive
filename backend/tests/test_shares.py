@@ -63,6 +63,9 @@ async def test_encrypted_files_cannot_be_shared(
 ) -> None:
     """The recipient would have no key, so the link would produce garbage."""
     headers = bound_user["headers"]
+    # Encryption must be enabled before a file may be flagged encrypted —
+    # otherwise no salt is stored and the file could never be decrypted at all.
+    await client.post("/api/encryption", json={"kdf": "argon2id"}, headers=headers)
     file = await make_file(client, headers, is_encrypted=True)
 
     response = await client.post(
