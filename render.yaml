@@ -10,19 +10,26 @@ services:
   - name: nimbus-drive-api
     type: web
     runtime: docker
-    # `starter` is paid. For a zero-cost trial set this to `free` and delete
-    # the preDeployCommand below — see "Running it free" in docs/SETUP.md.
-    plan: starter
-    region: oregon
+    plan: free
+    region: singapore # same region as the Supabase project, to keep latency low
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /health
 
-    # Runs after the build and before the new instance takes traffic.
-    # Migrations belong here, not in the start command: the start command runs
-    # on every instance, so scaling to N instances would race N migrations.
-    # (Pre-deploy commands require a paid instance type.)
-    preDeployCommand: alembic upgrade head
+    # Migrations would belong here — after the build, before the new instance
+    # takes traffic, and once per deploy rather than once per instance, so
+    # scaling cannot race N migrations against each other.
+    #
+    # Pre-deploy commands require a paid instance type, so on `free` this stays
+    # commented and migrations are run by hand:
+    #
+    #   cd backend && DATABASE_URL='<supabase url>' .venv/bin/alembic upgrade head
+    #
+    # Nothing is pending today: the schema is already applied to Supabase, and
+    # the database does not live on Render. Uncomment this the same day you
+    # move to a paid plan.
+    #
+    # preDeployCommand: alembic upgrade head
 
     envVars:
       - key: APP_ENV
@@ -112,8 +119,8 @@ services:
   # than break — but at this price it is a poor thing to skip.
   - name: nimbus-drive-kv
     type: keyvalue
-    plan: starter
-    region: oregon
+    plan: free
+    region: singapore
     ipAllowList: [] # private network only; nothing external needs to reach it
     maxmemoryPolicy: allkeys-lru
 
