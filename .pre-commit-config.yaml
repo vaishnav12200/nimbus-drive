@@ -1,0 +1,90 @@
+# Install once per clone:  pre-commit install && pre-commit install --hook-type pre-push
+#
+# Fast checks run on commit; the slow ones (mypy, flutter analyze) run on push,
+# so committing stays quick but nothing reaches the remote unchecked.
+
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.(md|patch)$
+      - id: end-of-file-fixer
+      - id: check-yaml
+        # render.yaml and the issue-form templates are plain YAML; the
+        # multi-document check would false-positive on nothing here, but
+        # keeping it strict is free.
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-added-large-files
+        args: [--maxkb=512]
+
+      # The one that matters most in this repo: it handles Telegram bot tokens,
+      # a JWT signing key and a database encryption key. None of them should
+      # ever be committable by accident.
+      #
+      # Two files are excluded because they contain the PEM *markers* with no
+      # key material — a commented example, and fixtures whose key body is the
+      # single character "x". Narrow exclusions rather than dropping the hook:
+      # it is what would catch a real jwt.pem moved out of secrets/.
+      - id: detect-private-key
+        exclude: ^(\.env\.example|backend/tests/test_config\.py)$
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.4
+    hooks:
+      - id: ruff
+        name: ruff (lint)
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        name: ruff (format)
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      # mypy needs the project's own dependencies to resolve SQLAlchemy and
+      # Pydantic types, so it runs from the venv rather than an isolated
+      # pre-commit environment.
+      - id: mypy
+        name: mypy (backend)
+        entry: backend/.venv/bin/mypy
+        args: [--config-file=backend/pyproject.toml, backend/app]
+        language: system
+        types: [python]
+        files: ^backend/app/
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: dart-format
+        name: dart format (mobile)
+        entry: bash -c 'cd mobile && dart format --set-exit-if-changed .'
+        language: system
+        files: ^mobile/.*\.dart$
+        pass_filenames: false
+
+      - id: flutter-analyze
+        name: flutter analyze (mobile)
+        entry: bash -c 'cd mobile && flutter analyze --fatal-infos'
+        language: system
+        files: ^mobile/.*\.dart$
+        pass_filenames: false
+        stages: [pre-push]
+
+      # Catches a model edited without a matching migration — the failure mode
+      # where everything works locally (tests build the schema from the models)
+      # and production is missing a column.
+      - id: alembic-check
+        name: alembic check (no un-migrated model changes)
+        entry: bash -c 'cd backend && .venv/bin/alembic check'
+        language: system
+        files: ^backend/app/models/
+        pass_filenames: false
+        stages: [pre-push]

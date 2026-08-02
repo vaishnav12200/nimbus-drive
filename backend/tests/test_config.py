@@ -117,7 +117,9 @@ class TestTransactionPoolerDetection:
         unknown pooler beats discovering it under load."""
         from app.core.db import is_transaction_pooler
 
-        assert is_transaction_pooler("postgresql+asyncpg://u:p@pgbouncer.internal:6543/db")
+        assert is_transaction_pooler(
+            "postgresql+asyncpg://u:p@pgbouncer.internal:6543/db"
+        )
 
 
 class TestCorsOriginsFromEnvironment:

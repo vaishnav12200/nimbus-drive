@@ -127,4 +127,3 @@ services:
 # No `databases:` block: PostgreSQL is Supabase, wired in via DATABASE_URL
 # above. Redis stays on Render so it is reachable over the private network
 # rather than the public internet on every rate-limit check.
-

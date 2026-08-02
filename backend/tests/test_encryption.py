@@ -25,9 +25,7 @@ def fake_verifier(size: int = 60) -> str:
     return base64.b64encode(os.urandom(size)).decode()
 
 
-async def enable(
-    client: AsyncClient, headers: dict[str, str], **kwargs: Any
-) -> Any:
+async def enable(client: AsyncClient, headers: dict[str, str], **kwargs: Any) -> Any:
     payload = {"kdf": "argon2id", "kdf_params": RECOMMENDED_ARGON2, **kwargs}
     return await client.post("/api/encryption", json=payload, headers=headers)
 
@@ -54,9 +52,9 @@ class TestRecommendations:
         assert body["salt_bytes"] == 32
 
     async def test_pbkdf2_recommendation_is_current(self, client: AsyncClient) -> None:
-        body = (
-            await client.get("/api/encryption/recommended?kdf=pbkdf2-sha256")
-        ).json()["data"]
+        body = (await client.get("/api/encryption/recommended?kdf=pbkdf2-sha256")).json()[
+            "data"
+        ]
         # The spec's 100_000 is roughly a sixth of current OWASP guidance.
         assert body["kdf_params"]["iterations"] >= 600_000
 
@@ -300,9 +298,7 @@ class TestDisableWithEncryptedFiles:
         created = await client.post(
             "/api/files", json=file_payload(is_encrypted=True), headers=headers
         )
-        await client.delete(
-            f"/api/files/{created.json()['data']['id']}", headers=headers
-        )
+        await client.delete(f"/api/files/{created.json()['data']['id']}", headers=headers)
 
         response = await client.delete("/api/encryption", headers=headers)
         assert response.status_code == 409
@@ -327,13 +323,13 @@ class TestDisableWithEncryptedFiles:
         await enable(client, headers)
         await client.post("/api/files", json=file_payload(), headers=headers)
 
-        assert (await client.delete("/api/encryption", headers=headers)).status_code == 200
+        assert (
+            await client.delete("/api/encryption", headers=headers)
+        ).status_code == 200
 
 
 class TestIsolation:
-    async def test_one_account_cannot_see_another_salt(
-        self, client: AsyncClient
-    ) -> None:
+    async def test_one_account_cannot_see_another_salt(self, client: AsyncClient) -> None:
         _, headers_a = await new_user(client)
         _, headers_b = await new_user(client)
         salt_a = (await enable(client, headers_a)).json()["data"]["salt"]
