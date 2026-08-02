@@ -114,7 +114,8 @@ Eight tables from the spec, plus two additions justified below.
 ### `users`
 `id`, `email` UNIQUE, `password_hash` (nullable — OAuth-only accounts have none),
 `display_name`, `google_id` UNIQUE, `github_id` UNIQUE, `encryption_enabled`,
-`encryption_salt`, `is_active`, `last_login_at`, timestamps.
+`encryption_salt`, `encryption_kdf`, `encryption_kdf_params` JSONB,
+`encryption_verifier`, `is_active`, `last_login_at`, timestamps.
 
 ### `user_telegram_configs`
 `user_id` → users CASCADE, `bot_token_encrypted` (AES-256-GCM), `bot_token_hint`
@@ -231,8 +232,8 @@ ordered.
 ### Spec deviations
 | Spec says | Built | Why |
 |---|---|---|
-| AES-GCM IV = 16 bytes | 12 bytes | 12 is the standard GCM nonce length; 16 is a non-standard size that weakens the security proof |
-| PBKDF2 100k iterations | Documented as a client concern; raise it | 100k is below current guidance (600k+ for PBKDF2-SHA256); Argon2id is the better answer |
+| AES-GCM IV = 16 bytes | **12 bytes** — resolved | 12 is the standard GCM nonce; 16 forces an extra GHASH derivation and interoperates badly for no gain. Served by `GET /api/encryption/recommended` so clients do not hard-code it |
+| PBKDF2 100k iterations | **Argon2id default, floors enforced** — resolved | 100k is ~1/6 of current OWASP guidance. The server now records the KDF and its parameters per user and rejects anything below the OWASP minimum (Argon2id m=19456/t=2, or PBKDF2 600k) |
 | No rate limiting | Login, registration and public share routes limited | Without it `/auth/login` is open to credential stuffing and share tokens can be swept |
 | Refresh token in a JWT | Opaque random, stored hashed | Revocation needs a server-side lookup regardless; opaque means a database dump yields nothing usable |
 

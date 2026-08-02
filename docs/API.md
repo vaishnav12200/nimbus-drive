@@ -322,3 +322,65 @@ limited by IP.
 | `BOT_TOKEN_UNREADABLE` | 502 | Server's encryption key changed; re-bind |
 | `MTPROTO_UNAVAILABLE` | 503 | Server lacks `TELEGRAM_API_ID`/`HASH`; no files > 20 MB |
 | `UPLOAD_CAPACITY` | 503 | Too many concurrent uploads, or staging disk is full |
+
+---
+
+## Client-side encryption
+
+The server never sees a password, a key, or plaintext. It holds only the public
+values a second device needs to arrive at the same key, and refuses the two
+operations that would silently destroy data.
+
+| Method | Endpoint | Notes |
+|---|---|---|
+| GET | `/api/encryption/recommended` | KDF parameters to use. Unauthenticated |
+| GET | `/api/encryption` | Salt, KDF, params, verifier for this account |
+| POST | `/api/encryption` | Enable. Mints the salt |
+| PUT | `/api/encryption/verifier` | Attach a password-check blob later |
+| DELETE | `/api/encryption` | Disable. `?force=true` to override the guard |
+
+### The flow a client implements
+
+```
+1. GET  /api/encryption/recommended     → kdf, params, iv_bytes, cipher
+2. user chooses a password              → never leaves the device
+3. POST /api/encryption {kdf, params}   → server returns a 32-byte salt
+4. key = KDF(password, salt, params)    → derived locally, held in memory
+5. verifier = AES-256-GCM(known text)   → PUT /api/encryption/verifier
+```
+
+On a new device: `GET /api/encryption`, prompt for the password, derive the key,
+and decrypt `verifier` to check it before fetching anything.
+
+### Rules the server enforces
+
+**Enabling twice returns 409.** A second salt would orphan every file encrypted
+under the first, and there is no recovery path.
+
+**Disabling with encrypted files returns 409**, including files in the trash,
+since those are restorable. `?force=true` accepts that they become unreadable —
+it deletes nothing.
+
+**Uploading with `is_encrypted: true` before enabling returns 400.** The row
+would describe a file whose key nothing on the server can reproduce.
+
+**Encrypted files cannot be shared** (`CANNOT_SHARE_ENCRYPTED`). A recipient has
+no key.
+
+### Parameters
+
+Defaults are Argon2id `m=65536, t=3, p=1` with a 12-byte IV and AES-256-GCM.
+A client may choose `pbkdf2-sha256` instead, or stronger parameters, but values
+below the OWASP minimum are rejected with 422 — the user cannot tell weak
+parameters from strong ones, and cannot recover from the difference.
+
+`kdf` and `kdf_params` are stored per account so the defaults can be raised
+later without changing the key that opens anyone's existing files.
+
+### Two things that are not the server's job
+
+Dedup hashes the **plaintext**, so `sha256` is computed before encryption —
+otherwise identical files would never deduplicate.
+
+The password is stored nowhere. Forgetting it means the data is unrecoverable,
+which is the design.
