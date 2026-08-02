@@ -65,6 +65,61 @@ def test_a_non_postgres_url_is_left_alone() -> None:
     assert _url("sqlite+aiosqlite:///./local.db") == "sqlite+aiosqlite:///./local.db"
 
 
+def test_supabase_session_pooler_string_is_rewritten() -> None:
+    """The exact string Supabase's dashboard hands out for a persistent server."""
+    assert _url(
+        "postgresql://postgres.abcdefgh:pw@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
+    ) == (
+        "postgresql+asyncpg://postgres.abcdefgh:pw"
+        "@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
+    )
+
+
+class TestTransactionPoolerDetection:
+    """Getting this wrong surfaces as intermittent `prepared statement
+    "__asyncpg_stmt_N__" does not exist` errors under concurrency — never in
+    development, only in production."""
+
+    def test_supabase_transaction_pooler_is_detected(self) -> None:
+        from app.core.db import is_transaction_pooler
+
+        assert is_transaction_pooler(
+            "postgresql+asyncpg://postgres.ref:pw"
+            "@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+        )
+
+    def test_supabase_session_pooler_is_not_transaction_mode(self) -> None:
+        """Session mode shares the hostname but *does* support prepared
+        statements — disabling them there would be a needless slowdown."""
+        from app.core.db import is_transaction_pooler
+
+        assert not is_transaction_pooler(
+            "postgresql+asyncpg://postgres.ref:pw"
+            "@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
+        )
+
+    def test_supabase_direct_connection_is_not_pooled(self) -> None:
+        from app.core.db import is_transaction_pooler
+
+        assert not is_transaction_pooler(
+            "postgresql+asyncpg://postgres:pw@db.abcdefgh.supabase.co:5432/postgres"
+        )
+
+    def test_plain_postgres_is_not_pooled(self) -> None:
+        from app.core.db import is_transaction_pooler
+
+        assert not is_transaction_pooler(
+            "postgresql+asyncpg://nimbus:nimbus@localhost:5432/nimbus"
+        )
+
+    def test_any_host_on_6543_is_treated_as_a_transaction_pooler(self) -> None:
+        """PgBouncer's conventional port. Assuming the safe configuration for an
+        unknown pooler beats discovering it under load."""
+        from app.core.db import is_transaction_pooler
+
+        assert is_transaction_pooler("postgresql+asyncpg://u:p@pgbouncer.internal:6543/db")
+
+
 def test_cors_origins_accept_a_comma_separated_string() -> None:
     """Env vars are strings; a list-typed setting has to cope with that."""
     settings = Settings(cors_origins="https://a.example, https://b.example")
