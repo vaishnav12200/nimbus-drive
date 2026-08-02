@@ -42,6 +42,21 @@ services:
       - key: DATABASE_URL
         sync: false
 
+      # Sized for Supabase, not for a dedicated Postgres.
+      #
+      # A free Supabase project allows 60 connections, 3 reserved for the
+      # superuser, and Supabase's own internals already hold ~12. In *session*
+      # mode every pooled client connection occupies one server connection for
+      # its whole lifetime, so SQLAlchemy's pool maps 1:1 onto that budget.
+      #
+      # The defaults (10 + 20 overflow) would let a single instance peak at 30
+      # — half the database — and two instances would exhaust it outright.
+      # Ten is ample for an async metadata API where requests are short.
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_MAX_OVERFLOW
+        value: "5"
+
       - key: REDIS_URL
         fromService:
           name: nimbus-drive-kv

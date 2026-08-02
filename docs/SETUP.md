@@ -58,6 +58,20 @@ You do not need to pre-create anything in the database. The migration creates
 `pg_trgm` if absent and schema-qualifies the trigram operator class, so it works
 whether the extension lands in `public` or Supabase's `extensions` schema.
 
+**Connection budget.** A free Supabase project allows 60 connections, 3 reserved
+for the superuser, and Supabase's own internals hold roughly 12. Session mode
+gives each pooled client a server connection for its whole lifetime, so
+SQLAlchemy's pool maps straight onto that budget. `render.yaml` therefore sets
+`DB_POOL_SIZE=5` / `DB_MAX_OVERFLOW=5` — a peak of 10 per instance — rather than
+the 30 the defaults would allow. Raise them only alongside a paid Supabase plan;
+exhausting the pool shows up as requests hanging, not as a clean error.
+
+**Free projects pause after 1 week without activity** and must be restored by
+hand from the dashboard. A deployed backend polls the database often enough that
+this will not trigger, but a project you set up and leave alone for a fortnight
+before deploying will be asleep when you come back. Paused projects are
+restorable for 90 days.
+
 ### 2. Generate the secrets Render cannot generate for you
 
 `SECRET_ENCRYPTION_KEY` is created by Render (`generateValue: true`). The JWT
