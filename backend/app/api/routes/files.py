@@ -41,6 +41,7 @@ from app.schemas.file import (
 from app.services import (
     activity,
     downloads,
+    encryption,
     telegram_config,
     uploads,
 )
@@ -136,6 +137,11 @@ async def create_file(
             details={"limit": settings.telegram_bot_api_max_upload},
         )
 
+    if payload.is_encrypted:
+        # Recording a file as encrypted when no salt is stored would produce a
+        # row nobody can ever decrypt on a second device.
+        encryption.assert_can_store_encrypted(user)
+
     file = await file_service.create_file(
         session,
         user.id,
@@ -186,6 +192,9 @@ async def reserve_file(
             "Telegram caps a single file at 2 GB. Split it before uploading.",
             details={"size": payload.size, "limit": settings.telegram_max_file_size},
         )
+
+    if payload.is_encrypted:
+        encryption.assert_can_store_encrypted(user)
 
     file = await file_service.create_file(
         session,
