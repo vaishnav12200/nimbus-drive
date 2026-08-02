@@ -132,6 +132,44 @@ API itself: **20 MB maximum, and no video streaming.**
 These identify *your server* to Telegram, not your users — each user still
 authenticates with their own bot token.
 
+### Running it free
+
+The Blueprint specifies `plan: starter` for both services, which is paid. To
+validate everything at zero cost first, make three edits:
+
+```yaml
+services:
+  - name: nimbus-drive-api
+    plan: free                    # was: starter
+    # preDeployCommand: ...       # delete this line — paid instances only
+  - name: nimbus-drive-kv
+    plan: free                    # was: starter
+```
+
+What you give up:
+
+| | Free | Starter |
+|---|---|---|
+| Always on | ❌ spins down after 15 min idle, ~1 min to wake | ✅ |
+| Migrations | manual — `preDeployCommand` is paid-only | automatic on deploy |
+| Key Value durability | in-memory, wiped on restart | persisted |
+| Instances | 1 | scalable |
+
+Two reasons this is a reasonable place to start:
+
+**Migrations are not actually a problem yet.** The schema is applied to Supabase
+the first time you run `alembic upgrade head` from your machine, and the
+database lives at Supabase — not on Render. The first deploy has nothing to
+migrate. You only need to run it by hand when a *future* migration is added.
+
+**Losing Key Value on restart costs nothing here.** It holds rate-limit counters
+and revoked token ids, both of which are inherently short-lived. A wipe resets
+some counters and lets a few already-revoked tokens live out their remaining
+minutes. Nothing is lost that matters.
+
+Upgrade to `starter` when you want the API always-on — cold starts are the thing
+you will actually notice.
+
 ### Render specifics worth knowing
 
 **Do not attach a Disk.** Large uploads are staged in `TEMP_DIR` and deleted in a

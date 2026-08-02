@@ -10,6 +10,8 @@ services:
   - name: nimbus-drive-api
     type: web
     runtime: docker
+    # `starter` is paid. For a zero-cost trial set this to `free` and delete
+    # the preDeployCommand below — see "Running it free" in docs/SETUP.md.
     plan: starter
     region: oregon
     dockerfilePath: ./backend/Dockerfile
