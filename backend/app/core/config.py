@@ -135,6 +135,51 @@ class Settings(BaseSettings):
                 v = v.replace(libpq, asyncpg)
         return v
 
+    @field_validator("telegram_api_id", mode="before")
+    @classmethod
+    def _validate_api_id(cls, v: object) -> object:
+        """Catch the two ways this gets filled in wrongly.
+
+        my.telegram.org shows `App api_id`, `App api_hash` *and* a block of RSA
+        public keys on one page, and the key block is the most visually obvious
+        thing there. Pasting it produces a raw pydantic int-parsing error with a
+        PEM fragment in the message, which explains nothing.
+        """
+        if v is None:
+            return None
+        if isinstance(v, int):
+            return v
+        text = str(v).strip()
+        if not text:
+            return None  # an env var set to empty means "not configured"
+        if "BEGIN" in text and "KEY" in text:
+            raise ValueError(
+                "TELEGRAM_API_ID looks like an RSA key. It should be the numeric "
+                "'App api_id' from my.telegram.org (a number like 1234567) — not "
+                "the public key block on that page, which this app never needs."
+            )
+        if not text.isdigit():
+            raise ValueError(
+                f"TELEGRAM_API_ID must be a number, got {text[:32]!r}. Copy the "
+                "'App api_id' field from my.telegram.org."
+            )
+        return int(text)
+
+    @field_validator("telegram_api_hash", mode="before")
+    @classmethod
+    def _validate_api_hash(cls, v: object) -> object:
+        if v is None:
+            return None
+        text = str(v).strip()
+        if not text:
+            return None
+        if "BEGIN" in text and "KEY" in text:
+            raise ValueError(
+                "TELEGRAM_API_HASH looks like an RSA key. It should be the "
+                "32-character 'App api_hash' from my.telegram.org."
+            )
+        return text
+
     @field_validator("jwt_private_key", "jwt_public_key", mode="before")
     @classmethod
     def _unescape_pem(cls, v: object) -> object:

@@ -158,6 +158,57 @@ class TestCorsOriginsFromEnvironment:
             Settings()
 
 
+class TestTelegramCredentials:
+    """my.telegram.org shows api_id, api_hash and a block of RSA public keys on
+    one page. Pasting the wrong one should say so, not raise a pydantic
+    int-parsing error with a PEM fragment in it."""
+
+    RSA_KEY = (
+        "-----BEGIN RSA PUBLIC KEY-----\n"
+        "MIIBCgKCAQEAwVACPi9w23mF3tBkdZz+zwrzKOaaQdr01vAbU4E1pvkfj4sqDsm6\n"
+        "-----END RSA PUBLIC KEY-----\n"
+    )
+
+    def test_pasting_the_public_key_into_api_id_is_explained(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TELEGRAM_API_ID", self.RSA_KEY)
+        with pytest.raises(ValueError, match="looks like an RSA key"):
+            Settings()
+
+    def test_pasting_the_public_key_into_api_hash_is_explained(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TELEGRAM_API_HASH", self.RSA_KEY)
+        with pytest.raises(ValueError, match="looks like an RSA key"):
+            Settings()
+
+    def test_non_numeric_api_id_is_explained(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TELEGRAM_API_ID", "my-app-name")
+        with pytest.raises(ValueError, match="must be a number"):
+            Settings()
+
+    def test_a_valid_pair_is_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("TELEGRAM_API_ID", "1234567")
+        monkeypatch.setenv("TELEGRAM_API_HASH", "0123456789abcdef0123456789abcdef")
+        settings = Settings()
+        assert settings.telegram_api_id == 1234567
+        assert settings.mtproto_configured
+
+    def test_empty_env_vars_mean_not_configured(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Clearing a value in a dashboard usually sets it to "", not unset —
+        which would otherwise fail int parsing and refuse to boot."""
+        monkeypatch.setenv("TELEGRAM_API_ID", "")
+        monkeypatch.setenv("TELEGRAM_API_HASH", "")
+        settings = Settings()
+        assert settings.telegram_api_id is None
+        assert not settings.mtproto_configured
+
+
 def test_every_env_var_in_the_deploy_template_loads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
