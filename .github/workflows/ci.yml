@@ -1,0 +1,228 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch makes the previous run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # Lint and types are separated from tests on purpose: they need no database
+  # and finish in seconds, so a formatting mistake fails fast instead of waiting
+  # on Postgres to boot.
+  backend-lint:
+    name: backend · ruff + mypy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: ruff check
+        run: ruff check app tests alembic --output-format=github
+
+      - name: ruff format --check
+        run: ruff format --check app tests
+
+      - name: mypy
+        run: mypy app
+
+  backend-tests:
+    name: backend · pytest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    # The suite runs against real PostgreSQL, never SQLite: the schema depends
+    # on pg_trgm, INET, JSONB and partial indexes, so another engine would leave
+    # exactly the interesting parts unverified.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nimbus
+          POSTGRES_PASSWORD: nimbus
+          POSTGRES_DB: nimbus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nimbus"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # conftest connects to the `postgres` database on the same server to
+      # CREATE DATABASE, so the role needs createdb — the postgres image's
+      # POSTGRES_USER is a superuser, which covers it.
+      TEST_DATABASE_URL: postgresql+asyncpg://nimbus:nimbus@localhost:5432/nimbus_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: pytest
+        run: pytest -q --cov=app --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          if-no-files-found: ignore
+
+  # Guards the one thing tests cannot catch: a model change with no matching
+  # migration. Without this, a column exists locally (create_all builds it from
+  # the models) and is missing in production until someone notices.
+  migrations:
+    name: backend · migration drift
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nimbus
+          POSTGRES_PASSWORD: nimbus
+          POSTGRES_DB: nimbus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nimbus"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://nimbus:nimbus@localhost:5432/nimbus
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: alembic upgrade head
+        run: alembic upgrade head
+
+      - name: No un-migrated model changes
+        run: alembic check
+
+      - name: Downgrade to base and back up again
+        # A migration nobody can roll back is a migration you cannot deploy
+        # safely. This proves both directions actually run.
+        run: |
+          alembic downgrade base
+          alembic upgrade head
+
+  docker:
+    name: backend · docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image Render will build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          load: true
+          tags: nimbus-drive-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Container starts and binds $PORT
+        # Catches the class of failure that only appears at runtime: a settings
+        # field that cannot parse its own environment variable. Production
+        # config, no database — startup must still get as far as binding.
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt.pem 2>/dev/null
+          openssl rsa -in jwt.pem -pubout -out jwt.pub 2>/dev/null
+          docker run -d --name api -p 10000:10000 \
+            -e PORT=10000 \
+            -e APP_ENV=production \
+            -e DATABASE_URL='postgresql://u:p@127.0.0.1:5432/none' \
+            -e CORS_ORIGINS='*' \
+            -e SECRET_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
+            -e JWT_PRIVATE_KEY="$(cat jwt.pem)" \
+            -e JWT_PUBLIC_KEY="$(cat jwt.pub)" \
+            nimbus-drive-api:ci
+          for i in $(seq 1 30); do
+            if docker logs api 2>&1 | grep -q "Uvicorn running on http://0.0.0.0:10000"; then
+              echo "bound \$PORT correctly"; exit 0
+            fi
+            if ! docker ps -q --filter name=api | grep -q .; then
+              echo "container exited:"; docker logs api; exit 1
+            fi
+            sleep 1
+          done
+          echo "timed out waiting for startup"; docker logs api; exit 1
+
+  mobile:
+    name: mobile · analyze + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: dart format --set-exit-if-changed
+        run: dart format --set-exit-if-changed .
+
+      - name: flutter analyze
+        run: flutter analyze --fatal-infos
+
+      - name: flutter test
+        run: flutter test
