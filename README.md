@@ -105,7 +105,7 @@ leaks a file listing, not your files.
 |---|---|
 | **Client** | Flutter app — GitHub Releases + F-Droid |
 | **Backend** | FastAPI (Docker) on Render |
-| **Database** | PostgreSQL (Docker or managed) |
+| **Database** | PostgreSQL on Supabase (Docker locally) |
 | **Storage** | Your own Telegram channel — zero backend persistence of bytes |
 
 ### Why two upload paths

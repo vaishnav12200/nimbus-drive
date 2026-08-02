@@ -13,11 +13,46 @@ what you are deploying here is a small stateless API in front of PostgreSQL.
 
 ## Deploy to Render
 
-[`render.yaml`](../render.yaml) at the repo root is a Blueprint: it declares the
-API, a PostgreSQL database and a Key Value (Redis) instance, and wires the
-connection strings between them.
+The pieces:
 
-### 1. Generate the secrets Render cannot generate for you
+| Component | Where |
+|---|---|
+| API | Render web service (Docker) |
+| PostgreSQL | **Supabase** |
+| Redis | Render Key Value |
+| File bytes | your Telegram channel |
+
+[`render.yaml`](../render.yaml) declares the API and the Key Value instance.
+PostgreSQL is Supabase, so you supply `DATABASE_URL` yourself.
+
+### 1. Create the Supabase database
+
+Create a project, then **Project Settings → Database → Connection string**.
+
+**Take the Session pooler string — port 5432.** Supabase offers three and the
+choice matters:
+
+| Option | Host / port | Use it? |
+|---|---|---|
+| Direct | `db.<ref>.supabase.co:5432` | ❌ IPv6-only unless you buy the IPv4 add-on |
+| **Session pooler** | `aws-<region>.pooler.supabase.com:5432` | ✅ IPv4, supports prepared statements |
+| Transaction pooler | `aws-<region>.pooler.supabase.com:6543` | ⚠️ works, but slower here |
+
+Session mode is right for a long-lived container like this one. Transaction mode
+is built for serverless and **cannot support prepared statements** — asyncpg uses
+them by default, which produces intermittent
+`prepared statement "__asyncpg_stmt_N__" does not exist` failures under load.
+The app detects port 6543 and disables them automatically, so it will not break,
+but you pay for the lost statement caching. Prefer 5432.
+
+Paste the string exactly as Supabase gives it. The `postgresql://` scheme and
+any `sslmode` parameter are rewritten for asyncpg on load.
+
+You do not need to pre-create anything in the database. The migration creates
+`pg_trgm` if absent and schema-qualifies the trigram operator class, so it works
+whether the extension lands in `public` or Supabase's `extensions` schema.
+
+### 2. Generate the secrets Render cannot generate for you
 
 `SECRET_ENCRYPTION_KEY` is created by Render (`generateValue: true`). The JWT
 keypair is not, because it is a *pair* — generate it locally:
@@ -34,23 +69,24 @@ are scripting it instead, collapse to one line with literal `\n`:
 awk 'BEGIN{ORS="\\n"} {print}' jwt.pem
 ```
 
-### 2. Create the Blueprint
+### 3. Create the Blueprint
 
 Dashboard → **New** → **Blueprint** → select this repository. Render reads
 `render.yaml` and prompts for the `sync: false` variables:
 
 | Variable | Value |
 |---|---|
+| `DATABASE_URL` | Supabase session pooler string from §1 |
 | `JWT_PRIVATE_KEY` | contents of `jwt.pem` |
 | `JWT_PUBLIC_KEY` | contents of `jwt.pub` |
 | `CORS_ORIGINS` | your client's origin, or `*` while you have no web client |
-| `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` | optional — see §4 |
+| `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` | optional — see §5 |
 
-Apply. Render builds `backend/Dockerfile`, provisions the database and Key Value
-instance, runs `alembic upgrade head` as the pre-deploy command, and starts the
+Apply. Render builds `backend/Dockerfile`, provisions the Key Value instance,
+runs `alembic upgrade head` as the pre-deploy command, and starts the
 API once `/health` returns 200.
 
-### 3. Verify
+### 4. Verify
 
 ```bash
 curl -s https://nimbus-drive-api.onrender.com/health | jq
@@ -64,7 +100,7 @@ curl -s https://nimbus-drive-api.onrender.com/health | jq
 
 `mtproto_configured: false` is expected until you do the next step.
 
-### 4. Telegram API credentials (optional — enables files over 20 MB)
+### 5. Telegram API credentials (optional — enables files over 20 MB)
 
 Without these the API works, but only for files the client can send to the Bot
 API itself: **20 MB maximum, and no video streaming.**
@@ -122,7 +158,8 @@ Without Docker:
 ```bash
 cd backend
 python3.11 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-export DATABASE_URL=postgresql+asyncpg://nimbus:nimbus@localhost:5432/nimbus
+# compose publishes Postgres on 55432 so it cannot clash with a local install
+export DATABASE_URL=postgresql+asyncpg://nimbus:change-me@localhost:55432/nimbus
 .venv/bin/alembic upgrade head
 .venv/bin/uvicorn app.main:app --reload
 ```
@@ -234,7 +271,8 @@ Back up **the database and `SECRET_ENCRYPTION_KEY` together.** The database
 without the key leaves every stored bot token unreadable; the key without the
 database is worthless.
 
-Render Postgres takes automatic daily backups on paid plans. For your own dump:
+Supabase takes automatic daily backups (retention depends on your plan). For
+your own dump:
 
 ```bash
 pg_dump "$DATABASE_URL" | gzip > nimbus-$(date +%F).sql.gz
@@ -263,6 +301,10 @@ docker compose exec api alembic upgrade head
 | Deploy fails, "no open ports detected" | The container is not binding `$PORT`. Only happens if the `CMD` was edited. |
 | `503` from `/health` | Database unreachable. Check the connection string and that the database is in the same Render region. |
 | `InvalidPasswordError` / driver errors at startup | A connection string the app could not rewrite. It accepts `postgres://`, `postgresql://` and `postgresql+asyncpg://`. |
+| `prepared statement "__asyncpg_stmt_N__" does not exist`, only under load | A transaction-mode pooler the app did not recognise. Switch to Supabase's session pooler (port 5432). |
+| `Network is unreachable` connecting to Supabase | The direct connection (`db.<ref>.supabase.co`) is IPv6-only. Use the session pooler host instead. |
+| `Tenant or user not found` from Supabase | The pooler username must be `postgres.<project-ref>`, not `postgres`. Copy the string from the dashboard rather than assembling it. |
+| `operator class "gin_trgm_ops" does not exist` | Only possible on a hand-made schema; the migration resolves the extension's schema itself. Check the role may `CREATE EXTENSION`. |
 | `MTPROTO_UNAVAILABLE` on a large upload | `TELEGRAM_API_ID`/`TELEGRAM_API_HASH` unset — see §4. |
 | `BOT_TOKEN_UNREADABLE` | `SECRET_ENCRYPTION_KEY` changed. Users must re-bind their channel; there is no rotation migration. |
 | `CHAT_WRITE_FORBIDDEN` | The bot is not an administrator of the channel. |

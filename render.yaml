@@ -26,13 +26,21 @@ services:
       - key: APP_ENV
         value: production
 
-      # Render supplies `postgresql://…`, which SQLAlchemy would map to the
-      # synchronous psycopg2 driver. app.core.config rewrites the scheme to
-      # `postgresql+asyncpg://` on load, so this wires through untouched.
+      # Supabase — paste the **Session pooler** string (port 5432) from
+      # Project Settings → Database → Connection string.
+      #
+      #   postgresql://postgres.<ref>:<pw>@aws-<region>.pooler.supabase.com:5432/postgres
+      #
+      # Not the direct connection (db.<ref>.supabase.co): that is IPv6-only
+      # unless you buy the IPv4 add-on. Not the transaction pooler (6543)
+      # either — session mode supports prepared statements, which is what a
+      # long-lived container like this one wants. The app copes with 6543
+      # anyway by disabling them, but session mode is faster.
+      #
+      # The `postgresql://` scheme and any `sslmode` parameter are rewritten
+      # for asyncpg on load, so paste it exactly as Supabase gives it.
       - key: DATABASE_URL
-        fromDatabase:
-          name: nimbus-drive-db
-          property: connectionString
+        sync: false
 
       - key: REDIS_URL
         fromService:
@@ -92,10 +100,7 @@ services:
     ipAllowList: [] # private network only; nothing external needs to reach it
     maxmemoryPolicy: allkeys-lru
 
-databases:
-  - name: nimbus-drive-db
-    plan: basic-256mb
-    region: oregon
-    databaseName: nimbus
-    user: nimbus
-    postgresMajorVersion: "16"
+# No `databases:` block: PostgreSQL is Supabase, wired in via DATABASE_URL
+# above. Redis stays on Render so it is reachable over the private network
+# rather than the public internet on every rate-limit check.
+
