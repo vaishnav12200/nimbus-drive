@@ -19,7 +19,12 @@ from app.core.config import settings
 from app.models import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+
+# `%` is configparser's interpolation character, and alembic.ini is a
+# configparser file — so a URL containing one (any percent-encoded password,
+# e.g. `%24` for `$`) raises "invalid interpolation syntax" before a single
+# migration runs. Doubling escapes it back to a literal `%`.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

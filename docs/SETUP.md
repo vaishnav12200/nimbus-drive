@@ -48,6 +48,12 @@ but you pay for the lost statement caching. Prefer 5432.
 Paste the string exactly as Supabase gives it. The `postgresql://` scheme and
 any `sslmode` parameter are rewritten for asyncpg on load.
 
+**If your password contains `$`, `%`, `@`, `/` or `#`, percent-encode it.**
+`$` is the one that bites: written raw in a `.env` file, docker compose expands
+`$2026` as a variable and the password silently becomes something shorter, so
+authentication fails with no clue why. Encode `$` as `%24`, `%` as `%25`,
+`@` as `%40`, `/` as `%2F`, `#` as `%23`.
+
 You do not need to pre-create anything in the database. The migration creates
 `pg_trgm` if absent and schema-qualifies the trigram operator class, so it works
 whether the extension lands in `public` or Supabase's `extensions` schema.
@@ -303,7 +309,9 @@ docker compose exec api alembic upgrade head
 | `InvalidPasswordError` / driver errors at startup | A connection string the app could not rewrite. It accepts `postgres://`, `postgresql://` and `postgresql+asyncpg://`. |
 | `prepared statement "__asyncpg_stmt_N__" does not exist`, only under load | A transaction-mode pooler the app did not recognise. Switch to Supabase's session pooler (port 5432). |
 | `Network is unreachable` connecting to Supabase | The direct connection (`db.<ref>.supabase.co`) is IPv6-only. Use the session pooler host instead. |
-| `Tenant or user not found` from Supabase | The pooler username must be `postgres.<project-ref>`, not `postgres`. Copy the string from the dashboard rather than assembling it. |
+| `Tenant or user not found` from Supabase | Either the pooler username is not `postgres.<project-ref>`, or the region in the hostname is wrong. Copy the string from the dashboard rather than assembling it. |
+| Auth fails and the password looks truncated | An unencoded `$` in the password; docker compose expanded it. Percent-encode it as `%24`. |
+| `invalid interpolation syntax` from Alembic | A `%` in the URL hitting configparser. Fixed in `alembic/env.py`; only reappears if that escaping is removed. |
 | `operator class "gin_trgm_ops" does not exist` | Only possible on a hand-made schema; the migration resolves the extension's schema itself. Check the role may `CREATE EXTENSION`. |
 | `MTPROTO_UNAVAILABLE` on a large upload | `TELEGRAM_API_ID`/`TELEGRAM_API_HASH` unset — see §4. |
 | `BOT_TOKEN_UNREADABLE` | `SECRET_ENCRYPTION_KEY` changed. Users must re-bind their channel; there is no rotation migration. |
