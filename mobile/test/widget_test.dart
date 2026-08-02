@@ -1,30 +1,47 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:nimbus_drive/core/theme/app_colors.dart';
+import 'package:nimbus_drive/core/theme/app_theme.dart';
 import 'package:nimbus_drive/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('app boots into the showcase', (tester) async {
+    await tester.pumpWidget(const NimbusApp());
+    await tester.pump(const Duration(seconds: 1));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Nimbus'), findsOneWidget);
+    expect(find.text('48.2'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('theme exposes Nimbus tokens', (tester) async {
+    late NimbusTokens tokens;
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Builder(
+          builder: (context) {
+            tokens = context.tokens;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(tokens.canvas, AppColors.canvas);
+    expect(tokens.accents, hasLength(6));
+  });
+
+  test('every file type maps to a distinct accent', () {
+    const tokens = NimbusTokens.dark;
+    const types = ['image', 'video', 'document', 'audio', 'archive', 'other'];
+
+    final assigned = types.map(tokens.accentForType).toSet();
+
+    expect(assigned, hasLength(types.length));
+    // An unknown type must fall through rather than throw — the server can add
+    // a type before the client is rebuilt.
+    expect(tokens.accentForType('model/gltf'), tokens.accentForType('other'));
   });
 }
