@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Self-hosting help
+    url: https://github.com/vaishnav12200/nimbus-drive/blob/main/docs/SETUP.md
+    about: >
+      Deployment problems are usually one of a handful of things — the
+      troubleshooting table maps each error code to its cause.
+
+  - name: API reference
+    url: https://github.com/vaishnav12200/nimbus-drive/blob/main/docs/API.md
+    about: Endpoint behaviour, error codes, and the contract details OpenAPI cannot express.
+
+  - name: Security vulnerability
+    url: https://github.com/vaishnav12200/nimbus-drive/blob/main/CONTRIBUTING.md#reporting-security-issues
+    about: >
+      Please report privately, not as a public issue. This project handles bot
+      tokens, signing keys and users' encrypted files.

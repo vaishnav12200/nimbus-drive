@@ -1,0 +1,67 @@
+name: Feature request
+description: Suggest something the project should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: >
+        Describe the situation you are actually in, not the solution you have
+        in mind. A clear problem often has a simpler answer than the feature
+        that prompted it.
+      placeholder: >
+        I share a drive with my partner and cannot tell who uploaded what.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      options:
+        - Backend API
+        - Mobile app
+        - Storage providers (S3, local disk, IPFS)
+        - Deployment or self-hosting
+        - Docs
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including doing nothing — sometimes that is the right answer.
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Worth knowing before you write
+
+        Two constraints shape what can be accepted:
+
+        **The backend never stores file bytes.** Your files live in your own
+        Telegram channel; the server holds metadata only. A feature needing
+        server-side access to file contents does not fit this architecture.
+
+        **The server cannot read encrypted files.** Keys are derived on the
+        device and never transmitted. Anything requiring the server to inspect
+        an encrypted file's contents — thumbnails, full-text search, virus
+        scanning — can only work client-side.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and the roadmap in the README
+          required: true
