@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/nimbus_avatar.dart';
 import '../../core/widgets/nimbus_breakdown.dart';
 import '../../core/widgets/nimbus_button.dart';
 import '../../core/widgets/nimbus_card.dart';
@@ -142,8 +143,6 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
-
     return Row(
       children: [
         const Icon(Icons.cloud_rounded, color: AppColors.primary, size: 26),
@@ -152,23 +151,12 @@ class _Header extends StatelessWidget {
         const Spacer(),
         NimbusIconButton(icon: Icons.search_rounded, onPressed: () {}),
         const SizedBox(width: Gap.xs),
+        // Profile lives here rather than in the nav bar, so the bar is five
+        // places to go rather than four places and an account button.
         Pressable(
           onTap: () {},
           scale: 0.92,
-          child: Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.secondary,
-              shape: BoxShape.circle,
-              border: Border.all(color: tokens.canvas, width: 2),
-            ),
-            child: Text(
-              'V',
-              style: context.text.titleMedium!.copyWith(color: Colors.white),
-            ),
-          ),
+          child: const NimbusAvatar(name: 'Vaishnav K M'),
         ),
       ],
     );

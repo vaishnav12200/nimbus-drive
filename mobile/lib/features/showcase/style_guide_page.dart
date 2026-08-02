@@ -3,11 +3,18 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/nimbus_avatar.dart';
 import '../../core/widgets/nimbus_button.dart';
 import '../../core/widgets/nimbus_card.dart';
 import '../../core/widgets/nimbus_chip.dart';
+import '../../core/widgets/nimbus_empty_state.dart';
+import '../../core/widgets/nimbus_feedback.dart';
 import '../../core/widgets/nimbus_list_row.dart';
+import '../../core/widgets/nimbus_search_field.dart';
 import '../../core/widgets/nimbus_segmented.dart';
+import '../../core/widgets/nimbus_skeleton.dart';
+import '../../core/widgets/nimbus_tile.dart';
+import '../../core/widgets/nimbus_transfer_row.dart';
 
 /// Every token and widget in isolation, so a change to the system can be
 /// reviewed in one scroll instead of hunted for across feature screens.
@@ -378,19 +385,209 @@ class _StyleGuidePageState extends State<StyleGuidePage> {
             title: 'Input',
             child: Column(
               children: [
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search files and folders',
-                    prefixIcon: Icon(
-                      Icons.search_rounded,
-                      color: tokens.textTertiary,
-                      size: 20,
-                    ),
-                  ),
-                ),
+                const NimbusSearchField(),
                 const SizedBox(height: Gap.xs),
                 const TextField(
                   decoration: InputDecoration(hintText: 'Focus me'),
+                ),
+              ],
+            ),
+          ),
+
+          _Section(
+            title: 'Grid tiles',
+            child: Row(
+              children: [
+                Expanded(
+                  child: NimbusTile(
+                    title: 'Design assets',
+                    subtitle: '48 files',
+                    icon: Icons.folder_rounded,
+                    accent: AppColors.primary,
+                    onTap: () {},
+                  ),
+                ),
+                const SizedBox(width: Gap.xs),
+                Expanded(
+                  child: NimbusTile(
+                    title: 'launch-teaser.mp4',
+                    subtitle: '412 MB',
+                    icon: Icons.movie_rounded,
+                    accent: tokens.accentForType('video'),
+                    badge: Icons.lock_rounded,
+                    onTap: () {},
+                  ),
+                ),
+                const SizedBox(width: Gap.xs),
+                Expanded(
+                  child: NimbusTile(
+                    title: 'Selected',
+                    subtitle: '2.4 MB',
+                    icon: Icons.description_rounded,
+                    accent: tokens.accentForType('document'),
+                    selected: true,
+                    onTap: () {},
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          _Section(
+            title: 'Transfers',
+            child: NimbusCard(
+              padding: const EdgeInsets.symmetric(vertical: Gap.xs),
+              child: Column(
+                children: [
+                  NimbusTransferRow(
+                    name: 'nimbus-backup-2026-07.zip',
+                    state: TransferState.running,
+                    progress: 0.42,
+                    detail: '512 MB / 1.2 GB · 2.1 MB/s · chunk 11 of 27',
+                    icon: Icons.folder_zip_rounded,
+                    onCancel: () {},
+                  ),
+                  NimbusTransferRow(
+                    name: 'reserving movie.mp4',
+                    state: TransferState.queued,
+                    detail: 'Waiting for upload capacity',
+                    icon: Icons.movie_rounded,
+                    onCancel: () {},
+                  ),
+                  NimbusTransferRow(
+                    name: 'contract-signed.pdf',
+                    state: TransferState.done,
+                    progress: 1,
+                    detail: '2.4 MB · encrypted',
+                    icon: Icons.description_rounded,
+                  ),
+                  NimbusTransferRow(
+                    name: 'IMG_20260731_sunset.heic',
+                    state: TransferState.failed,
+                    progress: 0.66,
+                    detail: 'Telegram is rate limiting the bot — retry in 24s',
+                    icon: Icons.image_rounded,
+                    onRetry: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          _Section(
+            title: 'Loading',
+            child: NimbusCard(
+              padding: const EdgeInsets.symmetric(vertical: Gap.xs),
+              child: const NimbusSkeletonGroup(
+                child: Column(
+                  children: [
+                    NimbusRowSkeleton(titleWidth: 180),
+                    NimbusRowSkeleton(titleWidth: 120),
+                    NimbusRowSkeleton(titleWidth: 210),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          _Section(
+            title: 'Avatars',
+            child: Row(
+              children: [
+                for (final name in const [
+                  'Vaishnav K M',
+                  'Mia Bennett',
+                  'Arun P',
+                  'Zoe Okafor',
+                ]) ...[
+                  NimbusAvatar(name: name, ringColor: tokens.canvas),
+                  const SizedBox(width: Gap.xs),
+                ],
+                const NimbusAvatar(name: 'Small One', size: 32),
+              ],
+            ),
+          ),
+
+          _Section(
+            title: 'Empty state',
+            child: NimbusCard(
+              child: NimbusEmptyState(
+                icon: Icons.folder_open_rounded,
+                title: 'This folder is empty',
+                message:
+                    'Upload a file or move something here from another folder.',
+                actionLabel: 'Upload',
+                onAction: () {},
+              ),
+            ),
+          ),
+
+          _Section(
+            title: 'Feedback',
+            child: Wrap(
+              spacing: Gap.xs,
+              runSpacing: Gap.xs,
+              children: [
+                NimbusButton(
+                  label: 'Toast',
+                  size: NimbusButtonSize.small,
+                  variant: NimbusButtonVariant.secondary,
+                  onPressed: () =>
+                      NimbusFeedback.toast(context, 'Moved to Design assets'),
+                ),
+                NimbusButton(
+                  label: 'Success',
+                  size: NimbusButtonSize.small,
+                  variant: NimbusButtonVariant.secondary,
+                  onPressed: () =>
+                      NimbusFeedback.success(context, 'Upload complete'),
+                ),
+                NimbusButton(
+                  label: 'Error',
+                  size: NimbusButtonSize.small,
+                  variant: NimbusButtonVariant.secondary,
+                  onPressed: () => NimbusFeedback.error(
+                    context,
+                    'The bot is not a channel administrator',
+                  ),
+                ),
+                NimbusButton(
+                  label: 'Confirm',
+                  size: NimbusButtonSize.small,
+                  variant: NimbusButtonVariant.secondary,
+                  onPressed: () => NimbusFeedback.confirm(
+                    context,
+                    title: 'Delete permanently?',
+                    message:
+                        'This removes the file from Telegram as well. It '
+                        'cannot be undone.',
+                  ),
+                ),
+                NimbusButton(
+                  label: 'Sheet',
+                  size: NimbusButtonSize.small,
+                  variant: NimbusButtonVariant.secondary,
+                  onPressed: () => NimbusFeedback.sheet<void>(
+                    context,
+                    builder: (context) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const NimbusSheetHeader(title: 'File actions'),
+                        for (final (icon, label) in const [
+                          (Icons.drive_file_rename_outline_rounded, 'Rename'),
+                          (Icons.drive_file_move_outline, 'Move'),
+                          (Icons.ios_share_rounded, 'Share link'),
+                          (Icons.star_outline_rounded, 'Add to favourites'),
+                        ])
+                          NimbusListRow(
+                            title: label,
+                            icon: icon,
+                            iconColor: tokens.textSecondary,
+                            onTap: () => Navigator.of(context).pop(),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),

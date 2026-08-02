@@ -21,6 +21,8 @@ class NimbusTokens extends ThemeExtension<NimbusTokens> {
     required this.floating,
     required this.outline,
     required this.outlineStrong,
+    required this.skeleton,
+    required this.skeletonSheen,
     required this.textPrimary,
     required this.textSecondary,
     required this.textTertiary,
@@ -36,6 +38,9 @@ class NimbusTokens extends ThemeExtension<NimbusTokens> {
   final Color floating;
   final Color outline;
   final Color outlineStrong;
+
+  final Color skeleton;
+  final Color skeletonSheen;
 
   final Color textPrimary;
   final Color textSecondary;
@@ -71,6 +76,8 @@ class NimbusTokens extends ThemeExtension<NimbusTokens> {
     floating: AppColors.surfaceFloating,
     outline: AppColors.outline,
     outlineStrong: AppColors.outlineStrong,
+    skeleton: AppColors.skeleton,
+    skeletonSheen: AppColors.skeletonSheen,
     textPrimary: AppColors.textPrimary,
     textSecondary: AppColors.textSecondary,
     textTertiary: AppColors.textTertiary,
@@ -105,6 +112,8 @@ class NimbusTokens extends ThemeExtension<NimbusTokens> {
     Color? floating,
     Color? outline,
     Color? outlineStrong,
+    Color? skeleton,
+    Color? skeletonSheen,
     Color? textPrimary,
     Color? textSecondary,
     Color? textTertiary,
@@ -120,6 +129,8 @@ class NimbusTokens extends ThemeExtension<NimbusTokens> {
       floating: floating ?? this.floating,
       outline: outline ?? this.outline,
       outlineStrong: outlineStrong ?? this.outlineStrong,
+      skeleton: skeleton ?? this.skeleton,
+      skeletonSheen: skeletonSheen ?? this.skeletonSheen,
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
       textTertiary: textTertiary ?? this.textTertiary,
@@ -140,6 +151,8 @@ class NimbusTokens extends ThemeExtension<NimbusTokens> {
       floating: Color.lerp(floating, other.floating, t)!,
       outline: Color.lerp(outline, other.outline, t)!,
       outlineStrong: Color.lerp(outlineStrong, other.outlineStrong, t)!,
+      skeleton: Color.lerp(skeleton, other.skeleton, t)!,
+      skeletonSheen: Color.lerp(skeletonSheen, other.skeletonSheen, t)!,
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
       textTertiary: Color.lerp(textTertiary, other.textTertiary, t)!,

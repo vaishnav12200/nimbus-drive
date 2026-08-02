@@ -1,4 +1,4 @@
-import 'package:flutter/animation.dart';
+import 'package:flutter/widgets.dart';
 
 /// Spacing scale.
 ///
@@ -63,4 +63,21 @@ abstract final class Motion {
 
   /// How far a pressable shrinks. Small: the cue should be felt, not watched.
   static const double pressScale = 0.97;
+
+  /// Whether the user has asked the OS to reduce motion.
+  ///
+  /// Flutter surfaces "Remove animations" (Android) and "Reduce Motion" (iOS)
+  /// as [MediaQueryData.disableAnimations]. It does *not* act on it for you:
+  /// an explicit [AnimationController] keeps running regardless. A design
+  /// built on movement therefore has to ask.
+  static bool reduced(BuildContext context) =>
+      MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  /// [duration], or zero when the user has asked for less motion.
+  ///
+  /// Zero rather than merely shorter: the setting exists for people whose
+  /// symptoms a faster animation does not help. Colour and layout still land
+  /// on the same final frame, so nothing is lost but the travel.
+  static Duration of(BuildContext context, Duration duration) =>
+      reduced(context) ? Duration.zero : duration;
 }

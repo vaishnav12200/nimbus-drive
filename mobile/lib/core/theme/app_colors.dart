@@ -34,14 +34,43 @@ abstract final class AppColors {
   /// Borders on interactive surfaces that need to read as an edge.
   static const outlineStrong = Color(0xFF3A3A3A);
 
-  // --- Text -----------------------------------------------------------------
+  /// Loading placeholder blocks. One tone above [surfaceRaised] so a skeleton
+  /// is visible whether it sits on the page or inside the card it is loading
+  /// into.
+  static const skeleton = Color(0xFF2E2E2E);
 
+  /// The travelling highlight swept across [skeleton]. Far enough above it to
+  /// be seen in motion without turning the placeholder into a light band.
+  static const skeletonSheen = Color(0xFF454545);
+
+  // --- Text -----------------------------------------------------------------
+  //
+  // Every value below clears WCAG AA (4.5:1) against *both* `canvas` and
+  // `surfaceRaised`, checked rather than eyeballed. Raised is the harder case
+  // and the one that gets forgotten: a caption is legible on the page and then
+  // moves inside a card and is not.
+
+  /// 19.0:1 on canvas.
   static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFF9A9A9A);
-  static const textTertiary = Color(0xFF6B6B6B);
+
+  /// 8.3:1 on canvas, 6.8:1 on raised.
+  static const textSecondary = Color(0xFFABABAB);
+
+  /// 5.5:1 on canvas, 4.6:1 on raised.
+  ///
+  /// The dimmest grey the system allows. It was #6B6B6B, sampled from the
+  /// reference, which measured 2.95:1 on raised — the reference uses it for
+  /// decorative labels, but here it carries file sizes and timestamps, which
+  /// are content.
+  static const textTertiary = Color(0xFF8A8A8A);
 
   /// Text and icons placed on top of [primary].
   static const onPrimary = Color(0xFF0A0A0A);
+
+  /// Text and icons on top of any [accentBlue]-family pastel. All six are
+  /// light enough that black clears 8:1 on every one of them; white clears
+  /// none. There is no second ink colour in this system by design.
+  static const onAccent = Color(0xFF0A0A0A);
 
   // --- Brand ----------------------------------------------------------------
 
@@ -53,7 +82,15 @@ abstract final class AppColors {
   static const primaryDim = Color(0xFF7ACC42);
 
   /// Analytics, storage insight, anything informational rather than actionable.
-  static const secondary = Color(0xFF935AEF);
+  ///
+  /// The reference's purple is #935AEF, which puts white text at 4.24:1 —
+  /// just under AA, and this colour exists to be a card with white text on it.
+  /// Darkened ~5% to clear it at 5.1:1. The difference is invisible beside the
+  /// original; the failure was not.
+  ///
+  /// One purple, not two. A "safe" and an "unsafe" variant of the same hue is
+  /// a trap — the wrong one gets picked eventually.
+  static const secondary = Color(0xFF8250DE);
   static const secondaryDim = Color(0xFF7A45D1);
 
   // --- Category accents -----------------------------------------------------
@@ -71,5 +108,8 @@ abstract final class AppColors {
 
   static const success = Color(0xFF89FFC0);
   static const warning = Color(0xFFFFED89);
+
+  /// Takes [onAccent], not white — white on this red is 2.78:1, black is
+  /// 7.1:1. A destructive button is the last place to accept unreadable text.
   static const danger = Color(0xFFFF6B6B);
 }

@@ -94,62 +94,66 @@ class NimbusButton extends StatelessWidget {
         tokens.textPrimary,
         tokens.outlineStrong,
       ),
-      NimbusButtonVariant.danger => (AppColors.danger, Colors.white, null),
+      // Black on this red, not white — see AppColors.danger.
+      NimbusButtonVariant.danger => (
+        AppColors.danger,
+        AppColors.onAccent,
+        null,
+      ),
     };
+
+    // Disabling drops to a neutral surface rather than fading the fill.
+    // A translucent lime over a near-black canvas turns olive, which reads as
+    // a different button rather than an unavailable one — and lands at 2.1:1
+    // besides.
+    final bg = _enabled ? background : tokens.raised;
+    final fg = _enabled ? foreground : tokens.textTertiary;
+    final bd = _enabled ? border : (border == null ? null : tokens.outline);
 
     final textStyle =
         (size == NimbusButtonSize.large
                 ? context.text.titleMedium!
                 : context.text.labelLarge!)
-            .copyWith(color: foreground);
+            .copyWith(color: fg);
 
-    // Disabling dims the whole button rather than recolouring it, so a
-    // disabled primary is still recognisably the primary.
-    final content = AnimatedOpacity(
+    final content = AnimatedContainer(
       duration: Motion.fast,
-      opacity: _enabled ? 1 : 0.4,
-      child: AnimatedContainer(
-        duration: Motion.fast,
-        curve: Motion.decelerate,
-        height: _height,
-        padding: EdgeInsets.symmetric(horizontal: _padding),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(Radii.pill),
-          border: border == null ? null : Border.all(color: border, width: 1.5),
-        ),
-        child: Row(
-          mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (loading)
-              SizedBox.square(
-                dimension: _iconSize,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: foreground,
-                ),
-              )
-            else ...[
-              if (icon != null) ...[
-                Icon(icon, size: _iconSize, color: foreground),
-                const SizedBox(width: Gap.xs),
-              ],
-              Flexible(
-                child: Text(
-                  label,
-                  style: textStyle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+      curve: Motion.decelerate,
+      height: _height,
+      padding: EdgeInsets.symmetric(horizontal: _padding),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(Radii.pill),
+        border: bd == null ? null : Border.all(color: bd, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (loading)
+            SizedBox.square(
+              dimension: _iconSize,
+              child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+            )
+          else ...[
+            if (icon != null) ...[
+              Icon(icon, size: _iconSize, color: fg),
+              const SizedBox(width: Gap.xs),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                style: textStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              if (trailingIcon != null) ...[
-                const SizedBox(width: Gap.xs),
-                Icon(trailingIcon, size: _iconSize, color: foreground),
-              ],
+            ),
+            if (trailingIcon != null) ...[
+              const SizedBox(width: Gap.xs),
+              Icon(trailingIcon, size: _iconSize, color: fg),
             ],
           ],
-        ),
+        ],
       ),
     );
 

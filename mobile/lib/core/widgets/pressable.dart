@@ -71,9 +71,14 @@ class _PressableState extends State<Pressable>
     super.dispose();
   }
 
-  void _down(TapDownDetails _) => _controller.forward();
+  void _down(TapDownDetails _) {
+    if (Motion.reduced(context)) return;
+    _controller.forward();
+  }
 
-  void _up([TapUpDetails? _]) => _controller.reverse();
+  void _up([TapUpDetails? _]) {
+    if (_controller.value != 0) _controller.reverse();
+  }
 
   void _tap() {
     if (widget.haptic) HapticFeedback.selectionClick();
