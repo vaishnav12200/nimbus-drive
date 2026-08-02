@@ -120,10 +120,78 @@ class TestTransactionPoolerDetection:
         assert is_transaction_pooler("postgresql+asyncpg://u:p@pgbouncer.internal:6543/db")
 
 
-def test_cors_origins_accept_a_comma_separated_string() -> None:
-    """Env vars are strings; a list-typed setting has to cope with that."""
-    settings = Settings(cors_origins="https://a.example, https://b.example")
-    assert settings.cors_origins == ["https://a.example", "https://b.example"]
+class TestCorsOriginsFromEnvironment:
+    """These must go through `monkeypatch.setenv`, not the constructor.
+
+    pydantic-settings decodes complex types with `json.loads` *inside the
+    settings source*, before any field validator runs — a path the constructor
+    skips entirely. An earlier version of this test passed a string to
+    `Settings(...)` directly, so it stayed green while `CORS_ORIGINS=*` crashed
+    the container on boot with a JSONDecodeError.
+    """
+
+    def test_wildcard(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("CORS_ORIGINS", "*")
+        assert Settings().cors_origins == ["*"]
+
+    def test_single_origin(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("CORS_ORIGINS", "https://app.example")
+        assert Settings().cors_origins == ["https://app.example"]
+
+    def test_comma_separated(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("CORS_ORIGINS", "https://a.example, https://b.example")
+        assert Settings().cors_origins == ["https://a.example", "https://b.example"]
+
+    def test_json_array_still_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("CORS_ORIGINS", '["https://a.example","https://b.example"]')
+        assert Settings().cors_origins == ["https://a.example", "https://b.example"]
+
+    def test_empty_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("CORS_ORIGINS", "")
+        assert Settings().cors_origins == []
+
+    def test_malformed_json_gives_a_readable_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("CORS_ORIGINS", '["unclosed')
+        with pytest.raises(ValueError, match="comma-separated"):
+            Settings()
+
+
+def test_every_env_var_in_the_deploy_template_loads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Boot Settings from exactly the variables the Render template sets.
+
+    The CORS bug got through because each setting was checked in isolation and
+    none of it was ever loaded the way production loads it.
+    """
+    env = {
+        "APP_ENV": "production",
+        "DATABASE_URL": "postgresql://u:p@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres",
+        "DB_POOL_SIZE": "5",
+        "DB_MAX_OVERFLOW": "5",
+        "SECRET_ENCRYPTION_KEY": "bmltYnVzLWRyaXZlLXRlc3Qta2V5LTMyLWJ5dGVzISE=",
+        "JWT_PRIVATE_KEY": "-----BEGIN PRIVATE KEY-----\\nx\\n-----END PRIVATE KEY-----",
+        "JWT_PUBLIC_KEY": "-----BEGIN PUBLIC KEY-----\\nx\\n-----END PUBLIC KEY-----",
+        "CORS_ORIGINS": "*",
+        "TEMP_DIR": "/var/lib/nimbus/tmp",
+        "MAX_CONCURRENT_LARGE_UPLOADS": "2",
+        "MAX_TEMP_DIR_BYTES": "2147483648",
+        "PORT": "10000",
+    }
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+
+    settings = Settings()
+
+    assert settings.is_production
+    assert settings.database_url.startswith("postgresql+asyncpg://")
+    assert settings.cors_origins == ["*"]
+    assert settings.db_pool_size + settings.db_max_overflow == 10
+    assert settings.port == 10000
+    assert settings.temp_dir == "/var/lib/nimbus/tmp"
+    assert "\n" in (settings.jwt_private_key or "")
 
 
 def test_production_refuses_to_boot_without_secrets() -> None:

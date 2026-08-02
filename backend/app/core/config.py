@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import base64
 import functools
-from typing import Literal
+import json
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 MB = 1024 * 1024
 
@@ -25,7 +26,14 @@ class Settings(BaseSettings):
     debug: bool = False
     api_prefix: str = "/api"
     project_name: str = "Nimbus Drive"
-    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    # NoDecode is load-bearing. For a complex type like list[str],
+    # pydantic-settings runs json.loads() on the raw environment value *inside
+    # the settings source*, before any field validator runs — so CORS_ORIGINS=*
+    # blows up with a JSONDecodeError before `_split_origins` is ever reached.
+    # NoDecode suppresses that, leaving the raw string to the validator below.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["*"]
+    )
 
     # --- Database ---
     database_url: str = "postgresql+asyncpg://nimbus:nimbus@localhost:5432/nimbus"
@@ -138,9 +146,21 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, v: object) -> object:
-        if isinstance(v, str) and not v.startswith("["):
-            return [o.strip() for o in v.split(",") if o.strip()]
-        return v
+        """Accept `*`, `a,b,c`, or a JSON array — env vars are always strings."""
+        if not isinstance(v, str):
+            return v
+        v = v.strip()
+        if not v:
+            return []
+        if v.startswith("["):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    "CORS_ORIGINS looks like JSON but could not be parsed; "
+                    "a plain comma-separated list works too"
+                ) from exc
+        return [origin.strip() for origin in v.split(",") if origin.strip()]
 
     @field_validator("secret_encryption_key")
     @classmethod
