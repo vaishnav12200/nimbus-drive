@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     BigInteger,
@@ -17,7 +17,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import INET
+from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,12 +39,31 @@ class User(UUIDMixin, TimestampMixin, Base):
     google_id: Mapped[str | None] = mapped_column(String(255), unique=True)
     github_id: Mapped[str | None] = mapped_column(String(255), unique=True)
 
-    # Client-side encryption: the backend stores only the salt, never the key
-    # or the password used to derive it (spec §9.2).
+    # Client-side encryption (spec §9.2). The backend stores only the public
+    # parameters needed to *re-derive* a key on a new device — never the key,
+    # never the password.
     encryption_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
     encryption_salt: Mapped[bytes | None] = mapped_column(LargeBinary(32))
+
+    # Which KDF produced the key, and with what cost parameters.
+    #
+    # The spec assumed one hard-coded algorithm. Recording it instead is what
+    # makes the scheme upgradeable: raising Argon2's cost or moving off PBKDF2
+    # later would otherwise silently break every existing file, because a key
+    # derived with different parameters is a different key and there is no
+    # recovery path. Stored per user, so an upgrade can be rolled out lazily.
+    encryption_kdf: Mapped[str | None] = mapped_column(String(32))
+    encryption_kdf_params: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    # Opaque client-produced ciphertext of a known plaintext.
+    #
+    # AES-GCM already authenticates, so a wrong password fails closed — but only
+    # once the user has downloaded a file. On a fresh device this lets the unlock
+    # screen reject a wrong password immediately, before anything is fetched.
+    # The backend never interprets it.
+    encryption_verifier: Mapped[bytes | None] = mapped_column(LargeBinary)
 
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
