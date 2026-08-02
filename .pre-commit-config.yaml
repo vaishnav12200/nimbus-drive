@@ -38,7 +38,7 @@ repos:
         exclude: ^(\.env\.example|backend/tests/test_config\.py)$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.4
+    rev: v0.16.1
     hooks:
       - id: ruff
         name: ruff (lint)

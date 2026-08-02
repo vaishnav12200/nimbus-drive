@@ -31,9 +31,7 @@ class Settings(BaseSettings):
     # the settings source*, before any field validator runs — so CORS_ORIGINS=*
     # blows up with a JSONDecodeError before `_split_origins` is ever reached.
     # NoDecode suppresses that, leaving the raw string to the validator below.
-    cors_origins: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["*"]
-    )
+    cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["*"])
 
     # --- Database ---
     database_url: str = "postgresql+asyncpg://nimbus:nimbus@localhost:5432/nimbus"
