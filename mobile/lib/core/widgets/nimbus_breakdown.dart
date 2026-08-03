@@ -39,7 +39,7 @@ class NimbusBreakdown extends StatelessWidget {
     required this.segments,
     this.onSegmentTap,
     this.rowHeight = 46,
-    this.minFraction = 0.5,
+    this.minFraction = 0.38,
   });
 
   final List<BreakdownSegment> segments;
@@ -50,8 +50,9 @@ class NimbusBreakdown extends StatelessWidget {
   ///
   /// Without it a 2% category collapses to a sliver that cannot fit its own
   /// label — at phone width the label is dropped entirely, since it is the
-  /// flexible child. The default is tuned so a row still holds a word plus a
-  /// size on a 390pt screen.
+  /// flexible child. The default is tuned so a row still holds one word on a
+  /// 390pt screen; the value moves outside the bar when it will not fit
+  /// alongside, so the floor only has to cover the label.
   ///
   /// The bars stay honest in order and rank; only the extreme low end is
   /// clamped, which is the trade every version of this chart makes. Read the
@@ -150,49 +151,89 @@ class _RowState extends State<_Row> {
     }
   }
 
+  /// Rendered width of [text] in [style], for deciding whether it fits.
+  double _measure(String text, TextStyle style, double scale) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.linear(scale),
+    )..layout();
+    return painter.width;
+  }
+
   @override
   Widget build(BuildContext context) {
     final segment = widget.segment;
     final trailing = segment.trailing ?? '${(widget.percent * 100).round()}%';
 
+    // Every pastel in the palette is light, so black is the legible choice on
+    // all of them.
+    final labelStyle = context.text.bodyLarge!.copyWith(
+      color: Colors.black,
+      fontWeight: FontWeight.w500,
+    );
+    final valueStyle = context.text.bodySmall!;
+
+    // Does the value fit inside the bar next to the label?
+    //
+    // A byte size ("13.4 MB") is far wider than the percentage the reference
+    // shows, and the shortest bars are clamped to a fixed minimum — so on a
+    // narrow screen the label was being ellipsised away to make room. Measuring
+    // lets the value move outside the bar in exactly those cases instead of
+    // forcing every bar wider and flattening the chart.
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final needed =
+        _measure(segment.label, labelStyle, scale) +
+        Gap.xs +
+        _measure(trailing, valueStyle, scale) +
+        Gap.md * 2;
+    // Compared against the *target* width, not the animating one, so the
+    // decision does not flip part-way through the grow-in.
+    final fitsInside = needed <= widget.width;
+
+    Widget value(Color color) =>
+        Text(trailing, style: valueStyle.copyWith(color: color));
+
+    final bar = AnimatedContainer(
+      duration: Motion.slow,
+      curve: Motion.emphasized,
+      width: _width,
+      height: widget.height,
+      padding: const EdgeInsets.symmetric(horizontal: Gap.md),
+      decoration: BoxDecoration(
+        color: segment.color,
+        borderRadius: BorderRadius.circular(Radii.sm),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              segment.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: labelStyle,
+            ),
+          ),
+          if (fitsInside) ...[
+            const SizedBox(width: Gap.xs),
+            value(Colors.black.withValues(alpha: 0.55)),
+          ],
+        ],
+      ),
+    );
+
     return Pressable(
       onTap: widget.onTap,
       scale: 0.98,
-      child: AnimatedContainer(
-        duration: Motion.slow,
-        curve: Motion.emphasized,
-        width: _width,
-        height: widget.height,
-        padding: const EdgeInsets.symmetric(horizontal: Gap.md),
-        decoration: BoxDecoration(
-          color: segment.color,
-          borderRadius: BorderRadius.circular(Radii.sm),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                segment.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.text.bodyLarge!.copyWith(
-                  // Every pastel in the palette is light, so black is the
-                  // legible choice on all of them.
-                  color: Colors.black,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+      child: fitsInside
+          ? bar
+          : Row(
+              children: [
+                bar,
+                const SizedBox(width: Gap.xs),
+                Flexible(child: value(context.tokens.textSecondary)),
+              ],
             ),
-            const SizedBox(width: Gap.xs),
-            Text(
-              trailing,
-              style: context.text.bodySmall!.copyWith(
-                color: Colors.black.withValues(alpha: 0.55),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
