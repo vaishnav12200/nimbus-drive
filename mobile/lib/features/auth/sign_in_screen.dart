@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/pressable.dart';
 import 'auth_controller.dart';
 import 'register_screen.dart';
@@ -39,7 +40,9 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() {
       _emailIssue = email.isEmpty
           ? 'Enter your email'
-          : (!email.contains('@') ? 'That does not look like an email' : null);
+          : (!isProbablyEmail(email)
+                ? 'That does not look like an email'
+                : null);
       // Not the 8-character rule here. On sign-in the password either matches
       // or it does not, and pre-judging an existing password is noise.
       _passwordIssue = password.isEmpty ? 'Enter your password' : null;

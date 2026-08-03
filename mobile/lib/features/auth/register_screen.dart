@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/pressable.dart';
 import 'auth_controller.dart';
 import 'widgets/auth_form.dart';
@@ -42,7 +43,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() {
       _emailIssue = email.isEmpty
           ? 'Enter your email'
-          : (!email.contains('@') ? 'That does not look like an email' : null);
+          : (!isProbablyEmail(email)
+                ? 'That does not look like an email'
+                : null);
       _passwordIssue = password.length < kMinPasswordLength
           ? 'Use at least $kMinPasswordLength characters'
           : null;
