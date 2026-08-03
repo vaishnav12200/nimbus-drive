@@ -29,6 +29,87 @@ enum FileType {
       values.firstWhere((t) => t.wire == value, orElse: () => other);
 }
 
+/// Buckets a MIME type into a [FileType].
+///
+/// `FileOut` carries a MIME type, not a category — the category only exists as
+/// a *filter* value on `/search`. Deriving it in one place keeps the breakdown,
+/// the row icons and the filter chips agreeing about what a file is.
+///
+/// [name] is the fallback: `application/octet-stream` is common for anything
+/// uploaded from a phone, and the extension is more informative than that.
+FileType fileTypeFromMime(String? mime, String name) {
+  final m = (mime ?? '').toLowerCase();
+
+  if (m.startsWith('image/')) return FileType.image;
+  if (m.startsWith('video/')) return FileType.video;
+  if (m.startsWith('audio/')) return FileType.audio;
+
+  const documents = {
+    'application/pdf',
+    'application/msword',
+    'application/rtf',
+    'text/plain',
+    'text/markdown',
+    'text/csv',
+  };
+  if (documents.contains(m) ||
+      m.startsWith('text/') ||
+      m.contains('officedocument') ||
+      m.contains('opendocument')) {
+    return FileType.document;
+  }
+
+  const archives = {
+    'application/zip',
+    'application/x-tar',
+    'application/gzip',
+    'application/x-7z-compressed',
+    'application/vnd.rar',
+    'application/x-rar-compressed',
+  };
+  if (archives.contains(m)) return FileType.archive;
+
+  return _typeFromExtension(name);
+}
+
+FileType _typeFromExtension(String name) {
+  final dot = name.lastIndexOf('.');
+  if (dot < 0 || dot == name.length - 1) return FileType.other;
+
+  return switch (name.substring(dot + 1).toLowerCase()) {
+    'jpg' ||
+    'jpeg' ||
+    'png' ||
+    'gif' ||
+    'webp' ||
+    'heic' ||
+    'svg' ||
+    'bmp' => FileType.image,
+    'mp4' || 'mov' || 'mkv' || 'webm' || 'avi' || 'm4v' => FileType.video,
+    'mp3' || 'm4a' || 'wav' || 'flac' || 'ogg' || 'aac' => FileType.audio,
+    'pdf' ||
+    'doc' ||
+    'docx' ||
+    'txt' ||
+    'md' ||
+    'rtf' ||
+    'odt' ||
+    'csv' ||
+    'xls' ||
+    'xlsx' ||
+    'ppt' ||
+    'pptx' => FileType.document,
+    'zip' ||
+    'tar' ||
+    'gz' ||
+    'tgz' ||
+    '7z' ||
+    'rar' ||
+    'bz2' => FileType.archive,
+    _ => FileType.other,
+  };
+}
+
 /// Anything that appears in a folder listing.
 ///
 /// Sealed so a `switch` over it is exhaustive: the compiler catches the case
