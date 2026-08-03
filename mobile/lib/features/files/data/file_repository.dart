@@ -18,6 +18,38 @@ class FolderListing {
   final DriveFolder? folder;
 }
 
+/// The whole drive in one shape, for the Home screen.
+///
+/// One call rather than three: Home shows how full the drive is, what fills it
+/// and what changed lately, and those numbers have to agree with each other.
+/// Fetched separately they can disagree by a write that landed in between.
+class DriveSummary {
+  const DriveSummary({
+    required this.storageUsed,
+    required this.storageQuota,
+    required this.bytesByType,
+    required this.recent,
+    required this.encryptedCount,
+  });
+
+  final int storageUsed;
+  final int storageQuota;
+
+  /// Bytes per category. Types with nothing in them are absent rather than
+  /// zero, so the breakdown never renders an empty bar.
+  final Map<FileType, int> bytesByType;
+
+  /// Most recently touched files across every folder.
+  final List<DriveFile> recent;
+
+  /// How many files are client-side encrypted. Settings reports it, and it has
+  /// to come from the same pass as the byte totals or the two screens disagree.
+  final int encryptedCount;
+
+  double get usedFraction =>
+      storageQuota == 0 ? 0 : (storageUsed / storageQuota).clamp(0.0, 1.0);
+}
+
 /// What the Files screen needs from storage.
 ///
 /// The screen depends on this interface and never on an implementation, so
@@ -28,6 +60,9 @@ class FolderListing {
 abstract interface class FileRepository {
   /// [folderId] null lists the drive root.
   Future<FolderListing> list({String? folderId, required FileQuery query});
+
+  /// Totals and recent activity across the whole drive.
+  Future<DriveSummary> summary({int recentLimit = 5});
 
   Future<void> rename(String id, String name);
 

@@ -111,6 +111,16 @@ class FilesController extends ChangeNotifier {
     _load();
   }
 
+  /// Jumps to the drive root showing only [type], or everything when null.
+  ///
+  /// Used when another screen asks a question about a category — the answer is
+  /// the whole drive filtered, not whichever folder was last open.
+  void showOnly(FileType? type) {
+    _path.clear();
+    _query = _query.cleared().copyWith(types: type == null ? {} : {type});
+    _load();
+  }
+
   void toggleType(FileType type) {
     final types = Set<FileType>.from(_query.types);
     if (!types.remove(type)) types.add(type);

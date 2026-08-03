@@ -42,6 +42,34 @@ class InMemoryFileRepository implements FileRepository {
     );
   }
 
+  @override
+  Future<DriveSummary> summary({int recentLimit = 5}) async {
+    await Future<void>.delayed(latency);
+
+    final bytesByType = <FileType, int>{};
+    for (final file in _files.values) {
+      bytesByType.update(
+        file.type,
+        (v) => v + file.size,
+        ifAbsent: () => file.size,
+      );
+    }
+
+    final recent = _files.values.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+    return DriveSummary(
+      storageUsed: _files.values.fold(0, (sum, f) => sum + f.size),
+      // Telegram itself imposes no account quota; this stands in for one the
+      // product would set, and is the only figure here the server does not
+      // already know.
+      storageQuota: 100 * 1024 * 1024 * 1024,
+      bytesByType: bytesByType,
+      recent: recent.take(recentLimit).toList(),
+      encryptedCount: _files.values.where((f) => f.isEncrypted).length,
+    );
+  }
+
   bool _matches(DriveItem item, FileQuery query) {
     if (query.search.isNotEmpty &&
         !item.name.toLowerCase().contains(query.search.toLowerCase())) {
