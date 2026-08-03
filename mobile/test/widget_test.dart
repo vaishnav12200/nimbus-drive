@@ -6,12 +6,29 @@ import 'package:nimbus_drive/core/theme/app_theme.dart';
 import 'package:nimbus_drive/main.dart';
 
 void main() {
-  testWidgets('app boots into the showcase', (tester) async {
+  testWidgets('app boots into Home and fills it from the repository', (
+    tester,
+  ) async {
     await tester.pumpWidget(const NimbusApp());
+
+    // First frame is the skeleton: the summary has not arrived yet.
+    expect(find.text('STORAGE USED'), findsNothing);
+
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('Nimbus'), findsOneWidget);
-    expect(find.text('48.2'), findsOneWidget);
+    expect(find.text('STORAGE USED'), findsOneWidget);
+    expect(find.text('Storage by type'), findsOneWidget);
+
+    // A real row from the seeded drive rather than a hardcoded figure: the
+    // point is that Home renders what the repository returned. It sits below
+    // the fold, and ListView builds lazily, so it has to be scrolled to.
+    await tester.scrollUntilVisible(
+      find.text('Q3 architecture review.pdf'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Q3 architecture review.pdf'), findsOneWidget);
   });
 
   testWidgets('theme exposes Nimbus tokens', (tester) async {
