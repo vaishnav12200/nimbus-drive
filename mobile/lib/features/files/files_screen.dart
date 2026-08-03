@@ -7,7 +7,6 @@ import '../../core/utils/formatters.dart';
 import '../../core/widgets/nimbus_button.dart';
 import '../../core/widgets/nimbus_chip.dart';
 import '../../core/widgets/nimbus_empty_state.dart';
-import '../../core/widgets/nimbus_feedback.dart';
 import '../../core/widgets/nimbus_list_row.dart';
 import '../../core/widgets/nimbus_search_field.dart';
 import '../../core/widgets/nimbus_skeleton.dart';
@@ -25,9 +24,17 @@ import 'widgets/file_sort_sheet.dart';
 /// reads from [FilesController] and never from a repository directly, so the
 /// switch from the in-memory fake to the API changes nothing here.
 class FilesScreen extends StatelessWidget {
-  const FilesScreen({super.key, required this.controller});
+  const FilesScreen({
+    super.key,
+    required this.controller,
+    required this.onOpenUpload,
+  });
 
   final FilesController controller;
+
+  /// Switches to the Upload tab. The empty state offers it, so it has to lead
+  /// somewhere real rather than explain that uploading exists elsewhere.
+  final VoidCallback onOpenUpload;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +54,12 @@ class FilesScreen extends StatelessWidget {
             child: Column(
               children: [
                 _Header(controller: controller),
-                Expanded(child: _Body(controller: controller)),
+                Expanded(
+                  child: _Body(
+                    controller: controller,
+                    onOpenUpload: onOpenUpload,
+                  ),
+                ),
               ],
             ),
           ),
@@ -163,9 +175,10 @@ class _Header extends StatelessWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.controller});
+  const _Body({required this.controller, required this.onOpenUpload});
 
   final FilesController controller;
+  final VoidCallback onOpenUpload;
 
   @override
   Widget build(BuildContext context) {
@@ -199,8 +212,7 @@ class _Body extends StatelessWidget {
               message: 'Upload a file or create a folder to get started.',
               actionLabel: 'Upload',
               accent: AppColors.primary,
-              onAction: () =>
-                  NimbusFeedback.toast(context, 'Upload lands in a later step'),
+              onAction: onOpenUpload,
             );
     }
 

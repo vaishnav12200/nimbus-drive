@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app/app_shell.dart';
 import 'core/theme/app_theme.dart';
-import 'features/showcase/showcase_screen.dart';
 
 void main() => runApp(const NimbusApp());
 
@@ -20,7 +20,7 @@ class NimbusApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       darkTheme: AppTheme.dark,
       scrollBehavior: const NimbusScrollBehavior(),
-      home: const ShowcaseScreen(),
+      home: const AppShell(),
     );
   }
 }
