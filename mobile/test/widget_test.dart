@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:nimbus_drive/app/dependencies.dart';
 import 'package:nimbus_drive/core/theme/app_colors.dart';
 import 'package:nimbus_drive/core/theme/app_theme.dart';
 import 'package:nimbus_drive/main.dart';
@@ -9,7 +10,8 @@ void main() {
   testWidgets('app boots into Home and fills it from the repository', (
     tester,
   ) async {
-    await tester.pumpWidget(const NimbusApp());
+    // Fake wiring: the boot path is what is under test, not the network.
+    await tester.pumpWidget(NimbusApp(dependencies: Dependencies.fake()));
 
     // First frame is the skeleton: the summary has not arrived yet.
     expect(find.text('STORAGE USED'), findsNothing);

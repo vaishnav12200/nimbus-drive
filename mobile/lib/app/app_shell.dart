@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../core/widgets/nimbus_nav_bar.dart';
-import '../features/files/data/file_repository.dart';
-import '../features/files/data/in_memory_file_repository.dart';
 import '../features/files/files_controller.dart';
 import '../features/files/files_screen.dart';
 import '../features/files/models/drive_item.dart';
 import '../features/home/home_controller.dart';
 import '../features/home/home_screen.dart';
+import '../features/settings/data/api_settings_repository.dart';
 import '../features/settings/settings_controller.dart';
 import '../features/settings/settings_screen.dart';
-import '../features/shared/data/share_repository.dart';
 import '../features/shared/shared_screen.dart';
 import '../features/shared/shares_controller.dart';
-import '../features/uploads/data/fake_transfer_repository.dart';
 import '../features/uploads/uploads_controller.dart';
 import '../features/uploads/uploads_screen.dart';
+import 'dependencies.dart';
 
 /// The five destinations, behind one persistent nav bar.
 enum NimbusTab {
@@ -37,10 +35,12 @@ enum NimbusTab {
 /// sort you chose, the upload queue — survives switching tabs. Each is built on
 /// first visit rather than up front, so an unopened tab costs nothing.
 ///
-/// Every controller here is constructed with an in-memory repository. Those
-/// four lines are the entire surface that changes when the API client lands.
+/// Repositories arrive from [Dependencies], so the shell neither knows nor
+/// cares whether it is talking to the backend or to the in-memory fakes.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, required this.dependencies});
+
+  final Dependencies dependencies;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -49,32 +49,31 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   NimbusTab _tab = NimbusTab.home;
 
+  Dependencies get _deps => widget.dependencies;
+
   /// Nullable and lazily built rather than `late final`: a `late final` that
   /// `dispose` touches gets *initialised* by the disposal, constructing a
   /// controller at teardown and leaving its work running after the tree is
   /// gone.
-  /// Home and Files read the same drive, so they share one repository —
-  /// otherwise a rename on Files would leave Home quoting the old name.
-  late final FileRepository _fileRepository = InMemoryFileRepository();
-
   HomeController? _home;
   FilesController? _files;
   UploadsController? _uploads;
   SharesController? _shares;
   SettingsController? _settings;
 
-  HomeController get home => _home ??= HomeController(_fileRepository);
+  // Home and Files share one repository instance, or a rename on Files would
+  // leave Home quoting the old name.
+  HomeController get home => _home ??= HomeController(_deps.files);
 
-  FilesController get files => _files ??= FilesController(_fileRepository);
+  FilesController get files => _files ??= FilesController(_deps.files);
 
   UploadsController get uploads =>
-      _uploads ??= UploadsController(FakeTransferRepository());
+      _uploads ??= UploadsController(_deps.transfers);
 
-  SharesController get shares =>
-      _shares ??= SharesController(InMemoryShareRepository());
+  SharesController get shares => _shares ??= SharesController(_deps.shares);
 
   SettingsController get settings => _settings ??= SettingsController(
-    InMemorySettingsRepository(_fileRepository),
+    ApiSettingsRepository(_deps.api, _deps.files, _deps.auth),
   );
 
   @override

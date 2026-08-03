@@ -1,12 +1,40 @@
 import 'package:flutter/material.dart';
 
-import 'app/app_shell.dart';
+import 'app/auth_gate.dart';
+import 'app/dependencies.dart';
 import 'core/theme/app_theme.dart';
 
-void main() => runApp(const NimbusApp());
+/// Runs against the in-memory drive instead of the backend:
+/// `flutter run --dart-define=NIMBUS_FAKE=true`
+///
+/// Useful for design work and for a device with no route to the API. The fakes
+/// reproduce latency, name clashes and the encrypted-share refusal, so screens
+/// still exercise their loading and error paths.
+const bool _useFakes = bool.fromEnvironment('NIMBUS_FAKE');
 
-class NimbusApp extends StatelessWidget {
-  const NimbusApp({super.key});
+void main() {
+  runApp(
+    NimbusApp(
+      dependencies: _useFakes ? Dependencies.fake() : Dependencies.live(),
+    ),
+  );
+}
+
+class NimbusApp extends StatefulWidget {
+  const NimbusApp({super.key, required this.dependencies});
+
+  final Dependencies dependencies;
+
+  @override
+  State<NimbusApp> createState() => _NimbusAppState();
+}
+
+class _NimbusAppState extends State<NimbusApp> {
+  @override
+  void dispose() {
+    widget.dependencies.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +48,7 @@ class NimbusApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       darkTheme: AppTheme.dark,
       scrollBehavior: const NimbusScrollBehavior(),
-      home: const AppShell(),
+      home: AuthGate(dependencies: widget.dependencies),
     );
   }
 }
