@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/utils/formatters.dart';
 import 'data/auth_repository.dart';
 import 'models/auth_user.dart';
 
@@ -84,13 +85,24 @@ class AuthController extends ChangeNotifier {
       _endedReason = null;
       return true;
     } on ApiException catch (e) {
-      _error = e.message;
+      _error = _describe(e);
       fieldErrors = e.fieldErrors;
       return false;
     } finally {
       _busy = false;
       notifyListeners();
     }
+  }
+
+  /// The server's message, with the wait appended when there is one.
+  ///
+  /// Registration is capped at 5 per hour per IP and login at 10 per 5 minutes,
+  /// both of which are easy to hit while developing. "Too many requests; slow
+  /// down" on its own does not tell anyone how long to slow down for.
+  static String _describe(ApiException e) {
+    final wait = e.retryAfter;
+    if (wait == null || wait <= 0) return e.message;
+    return '${e.message}. Try again in ${formatRetryAfter(wait)}.';
   }
 
   Future<void> signOut() async {

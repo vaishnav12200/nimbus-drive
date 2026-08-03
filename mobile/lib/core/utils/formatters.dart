@@ -33,6 +33,42 @@ String formatBytes(int bytes) {
   return '${value.toStringAsFixed(digits)} ${_units[unit]}';
 }
 
+/// A wait, as an error message should state it: "45 seconds", "17 minutes".
+///
+/// `RATE_LIMITED` and `FLOOD_WAIT` both carry `details.retry_after`. Showing
+/// "slow down" without the number leaves the only sensible next action —
+/// waiting — indistinguishable from the app being broken, so people keep
+/// tapping and extend the very window they are stuck in.
+String formatRetryAfter(int seconds) {
+  if (seconds < 60) return '$seconds second${seconds == 1 ? '' : 's'}';
+
+  // Rounded up: telling someone 17 minutes when it is 17.5 invites one more
+  // rejected attempt.
+  final minutes = (seconds / 60).ceil();
+  if (minutes < 60) return '$minutes minute${minutes == 1 ? '' : 's'}';
+
+  final hours = (minutes / 60).ceil();
+  return '$hours hour${hours == 1 ? '' : 's'}';
+}
+
+/// Whether [value] is plausibly an email address.
+///
+/// Deliberately loose — the server's validator is the authority and rejects
+/// far more than this. It exists to catch the shapes that are obviously wrong
+/// ("me@gmail", no dot after the @) *before* a round trip, because on
+/// `/auth/register` a wasted attempt also spends part of a 5-per-hour budget.
+bool isProbablyEmail(String value) {
+  final trimmed = value.trim();
+  final at = trimmed.indexOf('@');
+  if (at <= 0 || at != trimmed.lastIndexOf('@')) return false;
+
+  final domain = trimmed.substring(at + 1);
+  final dot = domain.indexOf('.');
+  // A dot that is neither first nor last: "a@b.c" passes, "a@.com" and
+  // "a@b." do not.
+  return dot > 0 && dot < domain.length - 1 && !trimmed.contains(' ');
+}
+
 /// A timestamp as a file list shows it: "14:32" today, "Yesterday", "Jul 30",
 /// "Jul 30, 2025" once the year differs.
 ///

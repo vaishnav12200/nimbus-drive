@@ -48,4 +48,51 @@ void main() {
       expect(formatWhen(DateTime(2026, 8, 2, 18), now: now), 'Yesterday');
     });
   });
+
+  group('formatRetryAfter', () {
+    test('stays in seconds under a minute', () {
+      expect(formatRetryAfter(1), '1 second');
+      expect(formatRetryAfter(45), '45 seconds');
+    });
+
+    test('rounds minutes up, so the stated wait is never short', () {
+      // 1013s is what the server actually returned when registration was
+      // rate limited: 16.9 minutes, reported as 17.
+      expect(formatRetryAfter(1013), '17 minutes');
+      expect(formatRetryAfter(61), '2 minutes');
+    });
+
+    test('rolls over to hours', () {
+      expect(formatRetryAfter(3600), '1 hour');
+      expect(formatRetryAfter(7000), '2 hours');
+    });
+  });
+
+  group('isProbablyEmail', () {
+    test('accepts ordinary addresses', () {
+      expect(isProbablyEmail('you@example.com'), isTrue);
+      expect(isProbablyEmail('  a.b+tag@sub.example.co.uk '), isTrue);
+    });
+
+    test('rejects a domain with no dot', () {
+      // The shape that produced a 422 from the server: the client should have
+      // caught it without spending a registration attempt.
+      expect(isProbablyEmail('vaishnav@gmail'), isFalse);
+    });
+
+    test('rejects malformed shapes', () {
+      for (final bad in [
+        '',
+        'nope',
+        '@example.com',
+        'a@',
+        'a@.com',
+        'a@b.',
+        'a@b@c.com',
+        'a b@c.com',
+      ]) {
+        expect(isProbablyEmail(bad), isFalse, reason: bad);
+      }
+    });
+  });
 }
