@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_dimens.dart';
 import '../../core/widgets/nimbus_nav_bar.dart';
+import '../files/data/in_memory_file_repository.dart';
+import '../files/files_controller.dart';
+import '../files/files_screen.dart';
 import 'overview_page.dart';
 import 'style_guide_page.dart';
 
@@ -32,13 +35,36 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
 
   int _index = 0;
 
+  /// Owned here so browsing state — folder, sort, view mode — survives a trip
+  /// to another tab and back. Swapping in the API-backed repository is a change
+  /// to this one line.
+  ///
+  /// Nullable rather than `late final`, because a `late final` field that
+  /// `dispose` touches gets *initialised* by the disposal: the controller is
+  /// constructed at teardown, fires its first load, and leaves a timer running
+  /// after the tree is gone. Created on first visit to Files instead, so the
+  /// tab costs nothing until it is opened.
+  FilesController? _filesController;
+
+  FilesController get _files =>
+      _filesController ??= FilesController(InMemoryFileRepository());
+
+  @override
+  void dispose() {
+    _filesController?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Only Home is built. Files, Upload and Shared switch the pill and show
-    // Home until their screens land. Settings stands in for the style guide
-    // during review — the guide is not a destination and goes away with this
-    // directory.
-    final page = _index == 4 ? const StyleGuidePage() : const OverviewPage();
+    // Upload and Shared switch the pill and fall back to Home until their
+    // screens land. Settings stands in for the style guide during review — the
+    // guide is not a destination and goes away with this directory.
+    final page = switch (_index) {
+      1 => FilesScreen(controller: _files),
+      4 => const StyleGuidePage(),
+      _ => const OverviewPage(),
+    };
 
     return Scaffold(
       body: Stack(
@@ -48,7 +74,7 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
               duration: Motion.of(context, Motion.normal),
               switchInCurve: Motion.decelerate,
               switchOutCurve: Motion.accelerate,
-              child: KeyedSubtree(key: ValueKey(_index == 4), child: page),
+              child: KeyedSubtree(key: ValueKey(_index), child: page),
             ),
           ),
           Positioned(

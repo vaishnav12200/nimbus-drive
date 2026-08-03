@@ -47,6 +47,7 @@ class NimbusTile extends StatelessWidget {
 
     return NimbusCard(
       onTap: onTap,
+      onLongPress: onLongPress,
       padding: const EdgeInsets.all(Gap.sm),
       radius: Radii.md,
       color: selected ? tokens.raisedHigh : tokens.raised,

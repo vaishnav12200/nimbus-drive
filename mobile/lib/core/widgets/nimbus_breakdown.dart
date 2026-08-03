@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_dimens.dart';
@@ -119,14 +121,25 @@ class _Row extends StatefulWidget {
 class _RowState extends State<_Row> {
   double _width = 0;
 
+  /// Held so it can be cancelled. A `mounted` check inside the callback stops
+  /// the setState but leaves the timer itself pending, which leaks past a
+  /// disposed widget and trips the test binding's timer check.
+  Timer? _entrance;
+
   @override
   void initState() {
     super.initState();
     // Grow-in runs once per mount. Later width changes (a filter narrowing the
     // set) animate through the same AnimatedContainer without re-triggering.
-    Future.delayed(widget.delay, () {
+    _entrance = Timer(widget.delay, () {
       if (mounted) setState(() => _width = widget.width);
     });
+  }
+
+  @override
+  void dispose() {
+    _entrance?.cancel();
+    super.dispose();
   }
 
   @override

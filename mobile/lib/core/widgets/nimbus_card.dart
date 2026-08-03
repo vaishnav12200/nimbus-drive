@@ -18,6 +18,7 @@ class NimbusCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(Gap.md),
     this.radius = Radii.lg,
     this.onTap,
+    this.onLongPress,
     this.bordered = false,
     this.shadow = false,
     this.width,
@@ -32,6 +33,7 @@ class NimbusCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final double radius;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   /// Hairline outline. For cards that sit directly on `canvas` and need an
   /// edge — a bordered card and a filled card should not be combined.
@@ -61,10 +63,11 @@ class NimbusCard extends StatelessWidget {
       child: child,
     );
 
-    if (onTap == null) return container;
+    if (onTap == null && onLongPress == null) return container;
 
     return Pressable(
       onTap: onTap,
+      onLongPress: onLongPress,
       // Full-width cards travel a long way at the default scale; ease off.
       scale: 0.985,
       child: container,
