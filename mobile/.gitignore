@@ -23,6 +23,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 /android/local.properties
 /android/.gradle/
 
@@ -31,3 +32,10 @@ app.*.map.json
 /ios/Flutter/Generated.xcconfig
 /ios/Flutter/flutter_export_environment.sh
 /macos/Flutter/ephemeral/
+
+# Release signing. The keystore is a private key and `key.properties` holds its
+# passwords — losing either means never being able to update the app on Play,
+# and leaking them means someone else can ship as you. Neither belongs in git.
+/android/key.properties
+*.jks
+*.keystore
