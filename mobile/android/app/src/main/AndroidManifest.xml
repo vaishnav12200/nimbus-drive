@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app is nothing but network calls. Flutter injects this into the
+         debug and profile manifests only, so without it here a release build
+         installs cleanly and then fails every request. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
-        android:label="nimbus_drive"
+        android:label="Nimbus Drive"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

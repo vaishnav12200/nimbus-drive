@@ -1,4 +1,4 @@
-package com.example.nimbus_drive
+package com.nimbus.drive
 
 import io.flutter.embedding.android.FlutterActivity
 
