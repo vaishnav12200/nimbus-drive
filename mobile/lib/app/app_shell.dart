@@ -99,6 +99,9 @@ class _AppShellState extends State<AppShell> {
     NimbusTab.files => FilesScreen(
       controller: files,
       onOpenUpload: () => _select(NimbusTab.upload),
+      downloads: _deps.downloads,
+      encryption: _deps.encryption,
+      botTokens: _deps.botTokens,
     ),
     NimbusTab.upload => UploadsScreen(controller: uploads),
     NimbusTab.shared => SharedScreen(controller: shares),
@@ -107,6 +110,7 @@ class _AppShellState extends State<AppShell> {
       onManageChannel: _openBinding,
       onDisconnectChannel: () =>
           unbindTelegram(_deps.telegram, _deps.botTokens),
+      encryption: _deps.encryption,
     ),
   };
 

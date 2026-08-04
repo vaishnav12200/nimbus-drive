@@ -3,8 +3,11 @@ import '../core/network/token_store.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/models/auth_user.dart';
+import '../features/encryption/data/encryption_repository.dart';
+import '../features/encryption/encryption_controller.dart';
 import '../features/files/data/api_file_repository.dart';
 import '../features/files/data/file_repository.dart';
+import '../features/files/data/download_service.dart';
 import '../features/files/data/in_memory_file_repository.dart';
 import '../features/shared/data/api_share_repository.dart';
 import '../features/shared/data/share_repository.dart';
@@ -28,6 +31,8 @@ class Dependencies {
     required this.shares,
     required this.telegram,
     required this.botTokens,
+    required this.encryption,
+    required this.downloads,
     required TransferRepository Function() transfers,
   }) : _makeTransfers = transfers;
 
@@ -38,6 +43,7 @@ class Dependencies {
     final files = ApiFileRepository(api);
     final telegram = ApiTelegramRepository(api);
     final botTokens = createBotTokenStore();
+    final encryption = EncryptionController(ApiEncryptionRepository(api));
 
     return Dependencies._(
       api: api,
@@ -47,7 +53,17 @@ class Dependencies {
       shares: ApiShareRepository(api),
       telegram: telegram,
       botTokens: botTokens,
-      transfers: () => UploadEngine(api, telegram, botTokens),
+      encryption: encryption,
+      downloads: DownloadService(api, keyProvider: () => encryption.key),
+      // The key is read per upload rather than captured, so locking the vault
+      // between two uploads actually stops the second from being encrypted
+      // under a key the user may no longer remember.
+      transfers: () => UploadEngine(
+        api,
+        telegram,
+        botTokens,
+        keyProvider: () => encryption.key,
+      ),
     );
   }
 
@@ -60,6 +76,7 @@ class Dependencies {
     final tokens = InMemoryTokenStore();
     final api = ApiClient(tokens);
     final files = InMemoryFileRepository();
+    final fakeEncryption = EncryptionController(ApiEncryptionRepository(api));
 
     return Dependencies._(
       api: api,
@@ -69,6 +86,8 @@ class Dependencies {
       shares: InMemoryShareRepository(),
       telegram: ApiTelegramRepository(api),
       botTokens: InMemoryBotTokenStore(),
+      encryption: fakeEncryption,
+      downloads: DownloadService(api, keyProvider: () => fakeEncryption.key),
       transfers: FakeTransferRepository.new,
     );
   }
@@ -83,6 +102,12 @@ class Dependencies {
   /// The bot token this device holds, for uploads that bypass the server.
   final BotTokenStore botTokens;
 
+  /// Holds the vault key for the session. Never persisted.
+  final EncryptionController encryption;
+
+  /// Fetches and decrypts file bytes.
+  final DownloadService downloads;
+
   final TransferRepository Function() _makeTransfers;
   TransferRepository? _transfers;
 
@@ -93,6 +118,7 @@ class Dependencies {
 
   void dispose() {
     auth.dispose();
+    encryption.dispose();
     _transfers?.dispose();
     api.dispose();
   }

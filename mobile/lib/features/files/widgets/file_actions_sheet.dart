@@ -20,6 +20,7 @@ Future<void> showFileActionsSheet(
   BuildContext context, {
   required DriveItem item,
   required FilesController controller,
+  VoidCallback? onOpen,
 }) {
   return NimbusFeedback.sheet<void>(
     context,
@@ -35,6 +36,20 @@ Future<void> showFileActionsSheet(
           const SizedBox(height: Gap.xs),
           Divider(color: tokens.outline),
           const SizedBox(height: Gap.xs),
+
+          if (isFile && onOpen != null)
+            NimbusListRow(
+              title: 'Open',
+              subtitle: item.isEncrypted
+                  ? 'Downloads and decrypts on this device'
+                  : null,
+              icon: Icons.open_in_new_rounded,
+              iconColor: AppColors.primary,
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onOpen();
+              },
+            ),
 
           NimbusListRow(
             title: 'Rename',

@@ -11,6 +11,8 @@ import '../../core/widgets/nimbus_empty_state.dart';
 import '../../core/widgets/nimbus_feedback.dart';
 import '../../core/widgets/nimbus_list_row.dart';
 import '../../core/widgets/nimbus_skeleton.dart';
+import '../encryption/encryption_controller.dart';
+import '../encryption/encryption_screen.dart';
 import 'models/account.dart';
 import 'settings_controller.dart';
 
@@ -22,7 +24,13 @@ class SettingsScreen extends StatelessWidget {
     required this.controller,
     required this.onManageChannel,
     required this.onDisconnectChannel,
+    required this.encryption,
   });
+
+  /// The vault. Lives outside this screen because the key is session state,
+  /// not account state — the server knows encryption is on, but only this
+  /// process knows whether the key has been derived.
+  final EncryptionController encryption;
 
   /// Opens the guided Telegram binding, and resolves true when the binding
   /// changed so this screen can reload rather than showing stale state.
@@ -77,7 +85,11 @@ class SettingsScreen extends StatelessWidget {
 
               _Group(
                 title: 'Encryption',
-                child: _EncryptionSection(state: account.encryption),
+                child: _EncryptionSection(
+                  state: account.encryption,
+                  controller: encryption,
+                  onChanged: controller.load,
+                ),
               ),
 
               _Group(
@@ -379,41 +391,77 @@ class _TelegramSection extends StatelessWidget {
 }
 
 class _EncryptionSection extends StatelessWidget {
-  const _EncryptionSection({required this.state});
+  const _EncryptionSection({
+    required this.state,
+    required this.controller,
+    required this.onChanged,
+  });
 
+  /// What the *server* knows: whether a salt exists, and how many files use it.
   final EncryptionState state;
+
+  /// What this *process* knows: whether the key has been derived.
+  final EncryptionController controller;
+
+  final Future<void> Function() onChanged;
+
+  Future<void> _open(BuildContext context) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => EncryptionScreen(controller: controller),
+      ),
+    );
+    // Setting up flips `encryption_enabled` server-side, so the account has to
+    // be refetched for the file count to be right.
+    if (changed ?? false) await onChanged();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final tokens = context.tokens;
+        final vault = describeVault(controller.state, context);
+        final locked = controller.state == VaultState.locked;
+        final off = controller.state == VaultState.off;
 
-    return Column(
-      children: [
-        NimbusListRow(
-          title: state.enabled ? 'Enabled' : 'Not set up',
-          subtitle: state.enabled
-              ? '${state.encryptedFileCount} files · ${state.kdf}'
-              : 'Files are stored unencrypted',
-          icon: state.enabled ? Icons.lock_rounded : Icons.lock_open_rounded,
-          iconColor: state.enabled ? AppColors.success : tokens.textSecondary,
-          trailing: state.enabled
-              ? null
-              : const Icon(Icons.chevron_right_rounded),
-          onTap: state.enabled
-              ? null
-              : () => NimbusFeedback.toast(
-                  context,
-                  'Encryption setup arrives with onboarding',
-                ),
-        ),
-        if (state.enabled)
-          NimbusListRow(
-            title: 'Password never leaves this device',
-            subtitle: 'Forget it and the data is unrecoverable',
-            icon: Icons.info_outline_rounded,
-            iconColor: tokens.textTertiary,
-          ),
-      ],
+        return Column(
+          children: [
+            NimbusListRow(
+              title: vault.title,
+              subtitle: state.enabled && controller.state != VaultState.off
+                  ? '${state.encryptedFileCount} files · ${state.kdf}'
+                  : vault.subtitle,
+              icon: vault.icon,
+              iconColor: vault.color,
+              trailing: off || locked
+                  ? const Icon(Icons.chevron_right_rounded)
+                  : null,
+              // Only offers a tap when there is something to do: set it up, or
+              // unlock it. An unlocked vault needs nothing.
+              onTap: off || locked ? () => _open(context) : null,
+            ),
+
+            if (controller.state == VaultState.unlocked)
+              NimbusListRow(
+                title: 'Lock now',
+                subtitle: 'Forgets the key until you enter the password again',
+                icon: Icons.lock_outline_rounded,
+                iconColor: tokens.textSecondary,
+                onTap: controller.lock,
+              ),
+
+            if (!off)
+              NimbusListRow(
+                title: 'Password never leaves this device',
+                subtitle: 'Forget it and the data is unrecoverable',
+                icon: Icons.info_outline_rounded,
+                iconColor: tokens.textTertiary,
+              ),
+          ],
+        );
+      },
     );
   }
 }

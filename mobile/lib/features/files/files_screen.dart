@@ -12,6 +12,10 @@ import '../../core/widgets/nimbus_list_row.dart';
 import '../../core/widgets/nimbus_search_field.dart';
 import '../../core/widgets/nimbus_skeleton.dart';
 import '../../core/widgets/nimbus_tile.dart';
+import '../encryption/encryption_controller.dart';
+import '../telegram/data/bot_token_store.dart';
+import 'data/download_service.dart';
+import 'file_preview_screen.dart';
 import 'files_controller.dart';
 import 'models/drive_item.dart';
 import 'models/file_query.dart';
@@ -24,18 +28,45 @@ import 'widgets/file_sort_sheet.dart';
 /// Tap a folder to descend, long-press anything for its actions. The screen
 /// reads from [FilesController] and never from a repository directly, so the
 /// switch from the in-memory fake to the API changes nothing here.
+typedef OpenFile = void Function(DriveFile file);
+
 class FilesScreen extends StatelessWidget {
   const FilesScreen({
     super.key,
     required this.controller,
     required this.onOpenUpload,
+    required this.downloads,
+    required this.encryption,
+    required this.botTokens,
   });
 
   final FilesController controller;
+  final DownloadService downloads;
+  final EncryptionController encryption;
+
+  /// Needed for the direct route: a small file comes straight from Telegram,
+  /// which requires the token this device holds.
+  final BotTokenStore botTokens;
 
   /// Switches to the Upload tab. The empty state offers it, so it has to lead
   /// somewhere real rather than explain that uploading exists elsewhere.
   final VoidCallback onOpenUpload;
+
+  Future<void> _open(BuildContext context, DriveFile file) async {
+    final token = await botTokens.read();
+    if (!context.mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => FilePreviewScreen(
+          file: file,
+          downloads: downloads,
+          encryption: encryption,
+          botToken: token,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +90,7 @@ class FilesScreen extends StatelessWidget {
                   child: _Body(
                     controller: controller,
                     onOpenUpload: onOpenUpload,
+                    onOpen: (file) => _open(context, file),
                   ),
                 ),
               ],
@@ -226,10 +258,15 @@ Future<void> _promptNewFolder(
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.controller, required this.onOpenUpload});
+  const _Body({
+    required this.controller,
+    required this.onOpenUpload,
+    required this.onOpen,
+  });
 
   final FilesController controller;
   final VoidCallback onOpenUpload;
+  final OpenFile onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -272,16 +309,17 @@ class _Body extends StatelessWidget {
       backgroundColor: context.tokens.raised,
       color: AppColors.primary,
       child: controller.query.view == FileViewMode.grid
-          ? _Grid(controller: controller)
-          : _List(controller: controller),
+          ? _Grid(controller: controller, onOpen: onOpen)
+          : _List(controller: controller, onOpen: onOpen),
     );
   }
 }
 
 class _List extends StatelessWidget {
-  const _List({required this.controller});
+  const _List({required this.controller, required this.onOpen});
 
   final FilesController controller;
+  final OpenFile onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -307,14 +345,16 @@ class _List extends StatelessWidget {
           trailing: _Badges(item: item),
           onTap: () => switch (item) {
             DriveFolder() => controller.open(item),
-            DriveFile() => showFileActionsSheet(
-              context,
-              item: item,
-              controller: controller,
-            ),
+            // Tap opens the file now that there is somewhere to open it;
+            // long-press remains the way to reach everything else.
+            DriveFile() => onOpen(item),
           },
-          onLongPress: () =>
-              showFileActionsSheet(context, item: item, controller: controller),
+          onLongPress: () => showFileActionsSheet(
+            context,
+            item: item,
+            controller: controller,
+            onOpen: item is DriveFile ? () => onOpen(item) : null,
+          ),
         );
       },
     );
@@ -322,9 +362,10 @@ class _List extends StatelessWidget {
 }
 
 class _Grid extends StatelessWidget {
-  const _Grid({required this.controller});
+  const _Grid({required this.controller, required this.onOpen});
 
   final FilesController controller;
+  final OpenFile onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -362,14 +403,16 @@ class _Grid extends StatelessWidget {
           },
           onTap: () => switch (item) {
             DriveFolder() => controller.open(item),
-            DriveFile() => showFileActionsSheet(
-              context,
-              item: item,
-              controller: controller,
-            ),
+            // Tap opens the file now that there is somewhere to open it;
+            // long-press remains the way to reach everything else.
+            DriveFile() => onOpen(item),
           },
-          onLongPress: () =>
-              showFileActionsSheet(context, item: item, controller: controller),
+          onLongPress: () => showFileActionsSheet(
+            context,
+            item: item,
+            controller: controller,
+            onOpen: item is DriveFile ? () => onOpen(item) : null,
+          ),
         );
       },
     );
