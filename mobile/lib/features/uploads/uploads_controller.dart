@@ -1,6 +1,8 @@
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
+// `show` matters: file_picker exports its own `FileType`, which would clash
+// with the drive's category enum of the same name.
+import 'package:file_picker/file_picker.dart' show FilePicker;
 import 'package:flutter/foundation.dart';
 
 import '../../core/widgets/nimbus_transfer_row.dart';
@@ -68,7 +70,7 @@ class UploadsController extends ChangeNotifier {
   /// user simply backed out of the picker — which is not an error and deserves
   /// no message.
   Future<int> pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       allowMultiple: true,
       // Bytes are needed either way: the direct route posts the whole body to
       // Telegram, and the picker on web has no path to fall back on.
