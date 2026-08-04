@@ -37,7 +37,9 @@ class TelegramBinding {
     this.channelName,
     this.channelId,
     this.maskedBotToken,
+    this.botUsername,
     this.lastTestedAt,
+    this.lastTestOk,
     this.isActive = false,
   });
 
@@ -48,9 +50,15 @@ class TelegramBinding {
   final int? channelId;
 
   /// The server never returns the token in full, so neither does this.
+  /// The field on the wire is `bot_token_masked`.
   final String? maskedBotToken;
 
+  final String? botUsername;
   final DateTime? lastTestedAt;
+
+  /// Result of the last `POST /telegram/test`, or null if never run.
+  final bool? lastTestOk;
+
   final bool isActive;
 
   bool get isBound => isActive && channelId != null;
