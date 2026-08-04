@@ -67,6 +67,24 @@ class UploadsScreen extends StatelessWidget {
   }
 }
 
+/// Opens the picker and reports only what is worth reporting.
+///
+/// Backing out of the picker returns nothing and says nothing — it is not an
+/// error. A refused upload usually means no channel is bound, which is worth
+/// saying plainly since it is fixed in Settings, not here.
+Future<void> _pick(BuildContext context, UploadsController controller) async {
+  try {
+    final added = await controller.pickFiles();
+    if (added == 0 || !context.mounted) return;
+    NimbusFeedback.toast(
+      context,
+      added == 1 ? 'Added 1 file to the queue' : 'Added $added files',
+    );
+  } catch (e) {
+    if (context.mounted) NimbusFeedback.error(context, '$e');
+  }
+}
+
 class _Header extends StatelessWidget {
   const _Header({required this.controller});
 
@@ -137,7 +155,7 @@ class _PickCard extends StatelessWidget {
                   icon: Icons.add_rounded,
                   variant: NimbusButtonVariant.secondary,
                   expand: true,
-                  onPressed: controller.pickFiles,
+                  onPressed: () => _pick(context, controller),
                 ),
               ),
               const SizedBox(width: Gap.xs),
@@ -147,7 +165,7 @@ class _PickCard extends StatelessWidget {
                 background: ink,
                 foreground: AppColors.primary,
                 tooltip: 'From photos',
-                onPressed: controller.pickFiles,
+                onPressed: () => _pick(context, controller),
               ),
             ],
           ),

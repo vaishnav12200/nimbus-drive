@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:math';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/widgets/nimbus_transfer_row.dart';
 import 'data/transfer_repository.dart';
+import 'models/picked_file.dart';
 import 'models/transfer.dart';
 
 /// State for the Upload screen.
@@ -61,19 +62,69 @@ class UploadsController extends ChangeNotifier {
   Future<void> resume(Transfer t) => _repository.resume(t.id);
   Future<void> clearCompleted() => _repository.clearCompleted();
 
-  /// Stands in for the platform file picker, which arrives with the real
-  /// upload pipeline. Sizes straddle the 20 MB line so both routes appear.
-  Future<void> pickFiles() {
-    const samples = [
-      ('holiday-clip.mp4', 340),
-      ('scan-0042.pdf', 3),
-      ('album-master.wav', 210),
-      ('screenshot.png', 2),
-      ('project-export.zip', 780),
-    ];
-    final pick = samples[Random().nextInt(samples.length)];
-    return _repository.enqueue(name: pick.$1, sizeBytes: pick.$2 * 1024 * 1024);
+  /// Opens the platform picker and queues whatever comes back.
+  ///
+  /// Returns the number of files added, so the caller can stay quiet when the
+  /// user simply backed out of the picker — which is not an error and deserves
+  /// no message.
+  Future<int> pickFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      // Bytes are needed either way: the direct route posts the whole body to
+      // Telegram, and the picker on web has no path to fall back on.
+      withData: true,
+    );
+    if (result == null) return 0;
+
+    var added = 0;
+    for (final file in result.files) {
+      final bytes = file.bytes;
+      if (bytes == null) continue;
+
+      await _repository.enqueue(
+        PickedFile(
+          name: file.name,
+          bytes: bytes,
+          mimeType: _mimeFor(file.extension),
+        ),
+      );
+      added++;
+    }
+    return added;
   }
+
+  /// A best-effort MIME type from the extension.
+  ///
+  /// The server stores whatever it is told and the client buckets files by it,
+  /// so a wrong guess only mislabels an icon — but `application/octet-stream`
+  /// for every photo would put the whole library under "Other".
+  static String _mimeFor(String? extension) =>
+      switch (extension?.toLowerCase()) {
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'heic' => 'image/heic',
+        'svg' => 'image/svg+xml',
+        'mp4' => 'video/mp4',
+        'mov' => 'video/quicktime',
+        'mkv' => 'video/x-matroska',
+        'webm' => 'video/webm',
+        'mp3' => 'audio/mpeg',
+        'm4a' => 'audio/mp4',
+        'wav' => 'audio/wav',
+        'flac' => 'audio/flac',
+        'pdf' => 'application/pdf',
+        'txt' => 'text/plain',
+        'md' => 'text/markdown',
+        'csv' => 'text/csv',
+        'zip' => 'application/zip',
+        'tar' => 'application/x-tar',
+        'gz' => 'application/gzip',
+        '7z' => 'application/x-7z-compressed',
+        'rar' => 'application/vnd.rar',
+        _ => 'application/octet-stream',
+      };
 
   @override
   void dispose() {
