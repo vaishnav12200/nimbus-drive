@@ -25,12 +25,17 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
     required this.controller,
+    required this.userName,
     required this.onOpenFiles,
     required this.onOpenUpload,
     required this.onOpenSettings,
   });
 
   final HomeController controller;
+
+  /// The signed-in account's name, for the avatar. Passed in rather than read
+  /// from a global so this screen stays testable without an auth session.
+  final String userName;
 
   /// Switches to Files, optionally pre-filtered to one category.
   final void Function({FileType? type}) onOpenFiles;
@@ -51,7 +56,11 @@ class HomeScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xs, Gap.page, 104),
             children: [
-              _Header(onSearch: () => onOpenFiles(), onProfile: onOpenSettings),
+              _Header(
+                userName: userName,
+                onSearch: () => onOpenFiles(),
+                onProfile: onOpenSettings,
+              ),
               const SizedBox(height: Gap.lg),
 
               if (controller.loading)
@@ -91,8 +100,13 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onSearch, required this.onProfile});
+  const _Header({
+    required this.userName,
+    required this.onSearch,
+    required this.onProfile,
+  });
 
+  final String userName;
   final VoidCallback onSearch;
   final VoidCallback onProfile;
 
@@ -118,7 +132,7 @@ class _Header extends StatelessWidget {
           child: Pressable(
             onTap: onProfile,
             scale: 0.92,
-            child: const NimbusAvatar(name: 'Nimbus User'),
+            child: NimbusAvatar(name: userName),
           ),
         ),
       ],

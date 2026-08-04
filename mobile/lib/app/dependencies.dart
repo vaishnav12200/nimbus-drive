@@ -8,8 +8,11 @@ import '../features/files/data/file_repository.dart';
 import '../features/files/data/in_memory_file_repository.dart';
 import '../features/shared/data/api_share_repository.dart';
 import '../features/shared/data/share_repository.dart';
+import '../features/telegram/data/bot_token_store.dart';
+import '../features/telegram/data/telegram_repository.dart';
 import '../features/uploads/data/fake_transfer_repository.dart';
 import '../features/uploads/data/transfer_repository.dart';
+import '../features/uploads/data/upload_engine.dart';
 
 /// Everything the app is built out of, wired once.
 ///
@@ -23,6 +26,8 @@ class Dependencies {
     required this.auth,
     required this.files,
     required this.shares,
+    required this.telegram,
+    required this.botTokens,
     required TransferRepository Function() transfers,
   }) : _makeTransfers = transfers;
 
@@ -31,6 +36,8 @@ class Dependencies {
     final tokens = createTokenStore();
     final api = ApiClient(tokens, baseUrl: baseUrl);
     final files = ApiFileRepository(api);
+    final telegram = ApiTelegramRepository(api);
+    final botTokens = createBotTokenStore();
 
     return Dependencies._(
       api: api,
@@ -38,10 +45,9 @@ class Dependencies {
       auth: AuthController(ApiAuthRepository(api, tokens), client: api),
       files: files,
       shares: ApiShareRepository(api),
-      // Still a fake: sending bytes needs a file picker and the Telegram Bot
-      // API client, neither of which exists yet. Everything around it — the
-      // queue, the routes, the failure states — is real.
-      transfers: FakeTransferRepository.new,
+      telegram: telegram,
+      botTokens: botTokens,
+      transfers: () => UploadEngine(api, telegram, botTokens),
     );
   }
 
@@ -61,6 +67,8 @@ class Dependencies {
       auth: AuthController(_AlwaysSignedInRepository()),
       files: files,
       shares: InMemoryShareRepository(),
+      telegram: ApiTelegramRepository(api),
+      botTokens: InMemoryBotTokenStore(),
       transfers: FakeTransferRepository.new,
     );
   }
@@ -70,6 +78,10 @@ class Dependencies {
   final AuthController auth;
   final FileRepository files;
   final ShareRepository shares;
+  final TelegramRepository telegram;
+
+  /// The bot token this device holds, for uploads that bypass the server.
+  final BotTokenStore botTokens;
 
   final TransferRepository Function() _makeTransfers;
   TransferRepository? _transfers;

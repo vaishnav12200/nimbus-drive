@@ -17,7 +17,19 @@ import 'settings_controller.dart';
 /// Account, storage, and the two things that make this app work at all:
 /// the Telegram binding and the encryption key.
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key, required this.controller});
+  const SettingsScreen({
+    super.key,
+    required this.controller,
+    required this.onManageChannel,
+    required this.onDisconnectChannel,
+  });
+
+  /// Opens the guided Telegram binding, and resolves true when the binding
+  /// changed so this screen can reload rather than showing stale state.
+  final Future<bool> Function() onManageChannel;
+
+  /// Removes the binding and the locally held bot token.
+  final Future<void> Function() onDisconnectChannel;
 
   final SettingsController controller;
 
@@ -58,6 +70,8 @@ class SettingsScreen extends StatelessWidget {
                 child: _TelegramSection(
                   controller: controller,
                   binding: account.telegram,
+                  onManage: onManageChannel,
+                  onDisconnect: onDisconnectChannel,
                 ),
               ),
 
@@ -218,10 +232,40 @@ class _StorageCard extends StatelessWidget {
 }
 
 class _TelegramSection extends StatelessWidget {
-  const _TelegramSection({required this.controller, required this.binding});
+  const _TelegramSection({
+    required this.controller,
+    required this.binding,
+    required this.onManage,
+    required this.onDisconnect,
+  });
 
   final SettingsController controller;
   final TelegramBinding binding;
+  final Future<bool> Function() onManage;
+  final Future<void> Function() onDisconnect;
+
+  /// Reloads the account when the flow reports a change, so the card flips
+  /// from "no channel" to the bound state without a manual refresh.
+  Future<void> _manage() async {
+    if (await onManage()) await controller.load();
+  }
+
+  Future<void> _confirmDisconnect(BuildContext context) async {
+    final confirmed = await NimbusFeedback.confirm(
+      context,
+      title: 'Disconnect this channel?',
+      message:
+          'Nimbus stops being able to upload or download. The files already in '
+          'your Telegram channel are untouched, and reconnecting the same '
+          'channel restores access to them.',
+      confirmLabel: 'Disconnect',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    await onDisconnect();
+    await controller.load();
+    if (context.mounted) NimbusFeedback.toast(context, 'Channel disconnected');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -259,10 +303,7 @@ class _TelegramSection extends StatelessWidget {
             NimbusButton(
               label: 'Connect a channel',
               expand: true,
-              onPressed: () => NimbusFeedback.toast(
-                context,
-                'Binding flow arrives with onboarding',
-              ),
+              onPressed: _manage,
             ),
           ],
         ),
@@ -273,14 +314,21 @@ class _TelegramSection extends StatelessWidget {
       children: [
         NimbusListRow(
           title: binding.channelName ?? 'Channel',
-          subtitle: '${binding.channelId}',
+          subtitle: binding.botUsername == null
+              ? '${binding.channelId}'
+              : '${binding.channelId} · @${binding.botUsername}',
           icon: Icons.send_rounded,
           iconColor: AppColors.primary,
-          trailing: const Icon(
-            Icons.check_circle_rounded,
-            color: AppColors.success,
+          trailing: Icon(
+            binding.lastTestOk == false
+                ? Icons.error_outline_rounded
+                : Icons.check_circle_rounded,
+            color: binding.lastTestOk == false
+                ? AppColors.danger
+                : AppColors.success,
             size: 20,
           ),
+          onTap: _manage,
         ),
         // No chevron and no tap: the server never returns the token in full,
         // so there is nothing to open and nothing to copy.
@@ -304,6 +352,13 @@ class _TelegramSection extends StatelessWidget {
                 )
               : const Icon(Icons.chevron_right_rounded),
           onTap: controller.testing ? null : () => _test(context, controller),
+        ),
+        NimbusListRow(
+          title: 'Disconnect channel',
+          subtitle: 'Existing files stay in Telegram',
+          icon: Icons.link_off_rounded,
+          iconColor: AppColors.danger,
+          onTap: () => _confirmDisconnect(context),
         ),
       ],
     );

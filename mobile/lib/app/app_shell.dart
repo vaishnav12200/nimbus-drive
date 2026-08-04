@@ -11,6 +11,8 @@ import '../features/settings/settings_controller.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/shared/shared_screen.dart';
 import '../features/shared/shares_controller.dart';
+import '../features/telegram/telegram_binding_controller.dart';
+import '../features/telegram/telegram_binding_screen.dart';
 import '../features/uploads/uploads_controller.dart';
 import '../features/uploads/uploads_screen.dart';
 import 'dependencies.dart';
@@ -89,6 +91,7 @@ class _AppShellState extends State<AppShell> {
   Widget _pageFor(NimbusTab tab) => switch (tab) {
     NimbusTab.home => HomeScreen(
       controller: home,
+      userName: _deps.auth.user?.name ?? 'Nimbus',
       onOpenFiles: _openFiles,
       onOpenUpload: () => _select(NimbusTab.upload),
       onOpenSettings: () => _select(NimbusTab.settings),
@@ -99,8 +102,31 @@ class _AppShellState extends State<AppShell> {
     ),
     NimbusTab.upload => UploadsScreen(controller: uploads),
     NimbusTab.shared => SharedScreen(controller: shares),
-    NimbusTab.settings => SettingsScreen(controller: settings),
+    NimbusTab.settings => SettingsScreen(
+      controller: settings,
+      onManageChannel: _openBinding,
+      onDisconnectChannel: () =>
+          unbindTelegram(_deps.telegram, _deps.botTokens),
+    ),
   };
+
+  /// Runs the guided Telegram binding. Resolves true when the binding changed.
+  ///
+  /// The controller is built per visit — it holds a half-entered token and a
+  /// step position, neither of which should survive being cancelled.
+  Future<bool> _openBinding() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => TelegramBindingScreen(
+          controller: TelegramBindingController(
+            _deps.telegram,
+            _deps.botTokens,
+          ),
+        ),
+      ),
+    );
+    return changed ?? false;
+  }
 
   /// Switches to Files, optionally narrowed to one category.
   ///
