@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
+import '../../../core/crypto/vault_key.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/nimbus_transfer_row.dart';
@@ -33,7 +35,15 @@ class UploadEngine implements TransferRepository {
     this._telegram,
     this._botTokens, {
     TelegramBotClient? bot,
+    this.keyProvider,
   }) : _bot = bot ?? TelegramBotClient();
+
+  /// Supplies the vault key, or null when the drive is unlocked-off or locked.
+  ///
+  /// A callback rather than a stored key: the session can be locked between one
+  /// upload and the next, and holding a stale key would encrypt under something
+  /// the user has since forgotten.
+  final VaultKey? Function()? keyProvider;
 
   final ApiClient _api;
   final TelegramRepository _telegram;
@@ -125,10 +135,20 @@ class UploadEngine implements TransferRepository {
         return;
       }
 
-      if (file.size <= kDirectUploadLimit) {
-        await _sendDirect(transfer.id, file, digest);
+      // Sealed after hashing, never before: the digest is over the plaintext,
+      // which is what lets an encrypted file deduplicate against its
+      // unencrypted twin.
+      final key = keyProvider?.call();
+      final body = key == null ? file.bytes : await key.seal(file.bytes);
+      final encrypted = key != null;
+
+      // The 20 MB threshold is Telegram's, so it applies to what is actually
+      // sent. Encryption adds a header and a tag per chunk, which can push a
+      // file just under the limit over it.
+      if (body.length <= kDirectUploadLimit) {
+        await _sendDirect(transfer.id, file, digest, body, encrypted);
       } else {
-        await _sendViaBackend(transfer.id, file, digest);
+        await _sendViaBackend(transfer.id, file, digest, body, encrypted);
       }
     } on ApiException catch (e) {
       if (_cancelled.remove(transfer.id)) return;
@@ -167,7 +187,13 @@ class UploadEngine implements TransferRepository {
     }
   }
 
-  Future<void> _sendDirect(String id, PickedFile file, String digest) async {
+  Future<void> _sendDirect(
+    String id,
+    PickedFile file,
+    String digest,
+    Uint8List body,
+    bool encrypted,
+  ) async {
     final token = await _botTokens.read();
     final binding = await _telegram.read();
 
@@ -182,7 +208,7 @@ class UploadEngine implements TransferRepository {
       botToken: token,
       channelId: binding!.channelId!,
       fileName: file.name,
-      bytes: file.bytes,
+      bytes: body,
       onProgress: (moved, _) =>
           _update(id, (t) => t.copyWith(sentBytes: moved)),
     );
@@ -194,9 +220,12 @@ class UploadEngine implements TransferRepository {
       '/files',
       body: {
         'name': file.name,
-        'size': file.size,
+        // The stored size is the ciphertext's, since that is what a download
+        // will actually stream.
+        'size': body.length,
         'mime_type': file.mimeType,
         'sha256': digest,
+        'is_encrypted': encrypted,
         'telegram_message_id': sent.messageId,
         'telegram_file_id': ?sent.fileId,
         'telegram_file_unique_id': ?sent.fileUniqueId,
@@ -210,6 +239,8 @@ class UploadEngine implements TransferRepository {
     String id,
     PickedFile file,
     String digest,
+    Uint8List body,
+    bool encrypted,
   ) async {
     // Reserve first: the row exists before a byte moves, so progress and
     // retries have something to attach to.
@@ -217,9 +248,10 @@ class UploadEngine implements TransferRepository {
       '/files/reserve',
       body: {
         'name': file.name,
-        'size': file.size,
+        'size': body.length,
         'mime_type': file.mimeType,
         'sha256': digest,
+        'is_encrypted': encrypted,
       },
       parse: (d) => d as Map<String, dynamic>,
     );
@@ -231,11 +263,11 @@ class UploadEngine implements TransferRepository {
     // space on a server that caps it.
     await _api.raw.post<dynamic>(
       '/files/$fileId/upload',
-      data: Stream<List<int>>.fromIterable([file.bytes]),
+      data: Stream<List<int>>.fromIterable([body]),
       options: Options(
         headers: {
           'Content-Type': 'application/octet-stream',
-          'Content-Length': file.size,
+          'Content-Length': body.length,
         },
       ),
       onSendProgress: (moved, _) {
