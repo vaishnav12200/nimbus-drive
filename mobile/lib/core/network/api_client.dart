@@ -131,6 +131,12 @@ class ApiClient {
     T Function(dynamic data)? parse,
   }) => _send(path, 'PATCH', body: body, parse: parse);
 
+  Future<T> put<T>(
+    String path, {
+    Object? body,
+    T Function(dynamic data)? parse,
+  }) => _send(path, 'PUT', body: body, parse: parse);
+
   Future<T> delete<T>(
     String path, {
     Map<String, dynamic>? query,
