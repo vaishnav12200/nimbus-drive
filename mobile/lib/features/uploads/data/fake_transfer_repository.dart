@@ -3,6 +3,7 @@ import 'dart:math';
 
 import '../../../core/widgets/nimbus_transfer_row.dart';
 import '../../files/models/drive_item.dart';
+import '../models/picked_file.dart';
 import '../models/transfer.dart';
 import 'transfer_repository.dart';
 
@@ -113,7 +114,9 @@ class FakeTransferRepository implements TransferRepository {
   }
 
   @override
-  Future<void> enqueue({required String name, required int sizeBytes}) async {
+  Future<void> enqueue(PickedFile file) async {
+    final name = file.name;
+    final sizeBytes = file.size;
     _transfers.insert(
       0,
       Transfer(

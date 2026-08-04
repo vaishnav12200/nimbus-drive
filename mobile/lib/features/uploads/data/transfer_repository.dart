@@ -1,3 +1,4 @@
+import '../models/picked_file.dart';
 import '../models/transfer.dart';
 
 /// The upload queue.
@@ -11,7 +12,7 @@ abstract interface class TransferRepository {
   /// Current snapshot, for a first frame that does not have to be empty.
   List<Transfer> get current;
 
-  Future<void> enqueue({required String name, required int sizeBytes});
+  Future<void> enqueue(PickedFile file);
 
   Future<void> cancel(String id);
 

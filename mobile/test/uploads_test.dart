@@ -1,11 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nimbus_drive/core/widgets/nimbus_transfer_row.dart';
 import 'package:nimbus_drive/features/files/models/drive_item.dart';
+import 'dart:typed_data';
+
 import 'package:nimbus_drive/features/uploads/data/fake_transfer_repository.dart';
+import 'package:nimbus_drive/features/uploads/models/picked_file.dart';
 import 'package:nimbus_drive/features/uploads/models/transfer.dart';
 import 'package:nimbus_drive/features/uploads/uploads_controller.dart';
 
 const _mb = 1024 * 1024;
+
+/// A picked file of the right size; the bytes themselves never matter to the
+/// fake, only how many there are.
+PickedFile _pick(String name, int size) =>
+    PickedFile(name: name, bytes: Uint8List(size));
 
 /// Waits for [condition] instead of guessing a duration.
 ///
@@ -92,8 +100,8 @@ void main() {
       final c = UploadsController(repo);
       addTearDown(c.dispose);
 
-      await repo.enqueue(name: 'big.zip', sizeBytes: 1000 * _mb);
-      await repo.enqueue(name: 'small.txt', sizeBytes: 1 * _mb);
+      await repo.enqueue(_pick('big.zip', 1000 * _mb));
+      await repo.enqueue(_pick('small.txt', 1 * _mb));
 
       // Wait until both are actually moving, not a fixed delay.
       await _until(() => c.overallProgress != null && c.overallProgress! > 0);
@@ -110,7 +118,7 @@ void main() {
       final c = UploadsController(repo);
       addTearDown(c.dispose);
 
-      await repo.enqueue(name: 'a.txt', sizeBytes: 1 * _mb);
+      await repo.enqueue(_pick('a.txt', 1 * _mb));
       await _until(() => c.completed.isNotEmpty);
 
       await c.clearCompleted();
