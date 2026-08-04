@@ -25,8 +25,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
 
+  String? _nameIssue;
   String? _emailIssue;
   String? _passwordIssue;
+
+  @override
+  void initState() {
+    super.initState();
+    // Notifying during build is not allowed, so this waits a frame.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => widget.controller.clearError(),
+    );
+  }
 
   @override
   void dispose() {
@@ -37,10 +47,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    final name = _name.text.trim();
     final email = _email.text.trim();
     final password = _password.text;
 
     setState(() {
+      _nameIssue = name.isEmpty ? 'Enter your name' : null;
       _emailIssue = email.isEmpty
           ? 'Enter your email'
           : (!isProbablyEmail(email)
@@ -50,12 +62,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ? 'Use at least $kMinPasswordLength characters'
           : null;
     });
-    if (_emailIssue != null || _passwordIssue != null) return;
+    if (_nameIssue != null || _emailIssue != null || _passwordIssue != null) {
+      return;
+    }
 
     final ok = await widget.controller.register(
       email: email,
       password: password,
-      displayName: _name.text,
+      displayName: name,
     );
     if (!mounted) return;
 
@@ -110,11 +124,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             AuthField(
               label: 'Name',
               controller: _name,
-              hint: 'Optional',
+              hint: 'What should we call you?',
               autofocus: true,
               keyboardType: TextInputType.name,
               autofillHints: const [AutofillHints.name],
-              error: serverFields['display_name'],
+              error: _nameIssue ?? serverFields['display_name'],
             ),
             AuthField(
               label: 'Email',

@@ -47,6 +47,18 @@ class AuthController extends ChangeNotifier {
   /// Per-field messages from a 422, for showing errors under the right input.
   Map<String, String> fieldErrors = const {};
 
+  /// Drops a failure from a previous screen.
+  ///
+  /// The controller outlives the sign-in and register screens, so without this
+  /// a rejected sign-in still shows its error after navigating to register —
+  /// where it is about a form the user has not submitted yet.
+  void clearError() {
+    if (_error == null && fieldErrors.isEmpty) return;
+    _error = null;
+    fieldErrors = const {};
+    notifyListeners();
+  }
+
   Future<void> restore() async {
     _status = AuthStatus.restoring;
     notifyListeners();

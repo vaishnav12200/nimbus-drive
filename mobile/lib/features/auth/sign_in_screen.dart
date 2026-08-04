@@ -27,6 +27,15 @@ class _SignInScreenState extends State<SignInScreen> {
   String? _passwordIssue;
 
   @override
+  void initState() {
+    super.initState();
+    // Notifying during build is not allowed, so this waits a frame.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => widget.controller.clearError(),
+    );
+  }
+
+  @override
   void dispose() {
     _email.dispose();
     _password.dispose();
