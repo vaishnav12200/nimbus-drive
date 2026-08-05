@@ -162,9 +162,7 @@ class ApiFileRepository implements FileRepository {
 
     return DriveSummary(
       storageUsed: files.fold(0, (sum, f) => sum + f.size),
-      // Telegram sets no per-account quota, so this is a product figure rather
-      // than a server one until an endpoint reports it.
-      storageQuota: 100 * 1024 * 1024 * 1024,
+      storageQuota: kStorageQuota,
       bytesByType: bytesByType,
       recent: files.take(recentLimit).toList(),
       encryptedCount: files.where((f) => f.isEncrypted).length,

@@ -60,10 +60,7 @@ class InMemoryFileRepository implements FileRepository {
 
     return DriveSummary(
       storageUsed: _files.values.fold(0, (sum, f) => sum + f.size),
-      // Telegram itself imposes no account quota; this stands in for one the
-      // product would set, and is the only figure here the server does not
-      // already know.
-      storageQuota: 100 * 1024 * 1024 * 1024,
+      storageQuota: kStorageQuota,
       bytesByType: bytesByType,
       recent: recent.take(recentLimit).toList(),
       encryptedCount: _files.values.where((f) => f.isEncrypted).length,

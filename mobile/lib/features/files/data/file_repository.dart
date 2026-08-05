@@ -18,6 +18,14 @@ class FolderListing {
   final DriveFolder? folder;
 }
 
+/// The storage ceiling shown in the UI.
+///
+/// A product figure, not a server one: Telegram imposes no per-account quota
+/// and the backend enforces nothing, so this exists only to give the storage
+/// bar a scale. Set high enough that a real user will not meet it — a full bar
+/// would imply a limit that does not exist.
+const int kStorageQuota = 1024 * 1024 * 1024 * 1024; // 1 TB
+
 /// The whole drive in one shape, for the Home screen.
 ///
 /// One call rather than three: Home shows how full the drive is, what fills it
