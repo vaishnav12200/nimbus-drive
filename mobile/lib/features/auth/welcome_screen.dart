@@ -106,16 +106,66 @@ class WelcomeScreen extends StatelessWidget {
 
 /// Shown while a stored session is being checked.
 ///
-/// Deliberately plain: it is on screen for one round trip, and anything that
-/// animates in would still be animating when it disappears.
+/// Normally on screen for one round trip. It explains itself once that stops
+/// being true, because a motionless logo is indistinguishable from a crash —
+/// and on a free-tier host the first request of the day really can take most
+/// of a minute while the server wakes.
 class AuthSplash extends StatelessWidget {
-  const AuthSplash({super.key});
+  const AuthSplash({super.key, this.slow = false});
+
+  final bool slow;
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
-        child: Icon(Icons.cloud_rounded, color: AppColors.primary, size: 48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_rounded, color: AppColors.primary, size: 48),
+            const SizedBox(height: Gap.xl),
+            AnimatedOpacity(
+              duration: Motion.of(context, Motion.slow),
+              opacity: slow ? 1 : 0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Gap.xxl),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: 120,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(Radii.pill),
+                        child: LinearProgressIndicator(
+                          minHeight: 3,
+                          backgroundColor: context.tokens.raisedHigh,
+                          valueColor: const AlwaysStoppedAnimation(
+                            AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: Gap.md),
+                    Text(
+                      'Waking the server…',
+                      textAlign: TextAlign.center,
+                      style: context.text.bodyMedium!.copyWith(
+                        color: context.tokens.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: Gap.xxs),
+                    Text(
+                      'The first start after a while can take a minute.',
+                      textAlign: TextAlign.center,
+                      style: context.text.bodySmall!.copyWith(
+                        color: context.tokens.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

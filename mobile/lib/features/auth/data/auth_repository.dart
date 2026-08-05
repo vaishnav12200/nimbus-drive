@@ -77,7 +77,18 @@ class ApiAuthRepository implements AuthRepository {
 
   @override
   Future<AuthUser?> restore() async {
-    if (await _tokens.read() == null) return null;
+    // Reading the keystore can fail on its own — a locked device, a keystore
+    // the OS decided to invalidate, an obfuscated build missing a class. It
+    // used to sit outside the catch below, so a throw here escaped `restore`
+    // entirely and left the splash screen waiting forever.
+    TokenPair? pair;
+    try {
+      pair = await _tokens.read();
+    } on Object {
+      return null;
+    }
+    if (pair == null) return null;
+
     try {
       return await _me();
     } on Object {

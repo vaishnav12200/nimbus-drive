@@ -30,6 +30,7 @@ class AuthController extends ChangeNotifier {
   StreamSubscription<ApiException>? _lost;
 
   AuthStatus _status = AuthStatus.restoring;
+  bool _slow = false;
   AuthUser? _user;
   bool _busy = false;
   String? _error;
@@ -39,6 +40,9 @@ class AuthController extends ChangeNotifier {
   String? _endedReason;
 
   AuthStatus get status => _status;
+
+  /// True while restoring is taking long enough to look stuck.
+  bool get restoreIsSlow => _slow;
   AuthUser? get user => _user;
   bool get busy => _busy;
   String? get error => _error;
@@ -59,13 +63,42 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// How long to wait before giving up and showing the sign-in screen.
+  ///
+  /// Generous, because a free-tier host can take most of a minute to wake. But
+  /// finite: an unbounded wait here is indistinguishable from a frozen app, and
+  /// falling back to sign-in costs at most one re-login.
+  static const restoreTimeout = Duration(seconds: 40);
+
   Future<void> restore() async {
     _status = AuthStatus.restoring;
+    _slow = false;
     notifyListeners();
 
-    final user = await _repository.restore();
+    // Tells the splash to explain itself if this is taking a while, rather
+    // than showing a motionless logo that reads as a crash.
+    final slowTimer = Timer(const Duration(seconds: 6), () {
+      if (_status == AuthStatus.restoring) {
+        _slow = true;
+        notifyListeners();
+      }
+    });
+
+    AuthUser? user;
+    try {
+      user = await _repository.restore().timeout(restoreTimeout);
+    } on Object {
+      // Whatever went wrong — no network, a slow cold start, a keystore that
+      // refused — the only safe landing is the sign-in screen. Never leave the
+      // splash up: there is nothing on it the user can act on.
+      user = null;
+    } finally {
+      slowTimer.cancel();
+    }
+
     _user = user;
     _status = user == null ? AuthStatus.signedOut : AuthStatus.signedIn;
+    _slow = false;
     notifyListeners();
   }
 
