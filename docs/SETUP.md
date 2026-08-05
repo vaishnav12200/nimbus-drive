@@ -109,7 +109,7 @@ API once `/health` returns 200.
 ### 4. Verify
 
 ```bash
-curl -s https://nimbus-drive-api.onrender.com/health | jq
+curl -s https://nimbus-drive-7lic.onrender.com/health | jq
 ```
 
 ```json

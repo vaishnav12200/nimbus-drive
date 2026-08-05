@@ -23,10 +23,17 @@ Uint8List _bytes(int length) {
   return Uint8List.fromList(List.generate(length, (_) => random.nextInt(256)));
 }
 
+/// Target host. Defaults to a local dev server; point it at the deployed one
+/// with `--dart-define=NIMBUS_API_BASE=https://<host>/api`.
+const _baseUrl = String.fromEnvironment(
+  'NIMBUS_API_BASE',
+  defaultValue: 'http://127.0.0.1:8000/api',
+);
+
 void main() {
   test('encryption round-trips against the live API', () async {
     final tokens = InMemoryTokenStore();
-    final api = ApiClient(tokens, baseUrl: 'http://127.0.0.1:8000/api');
+    final api = ApiClient(tokens, baseUrl: _baseUrl);
     final auth = ApiAuthRepository(api, tokens);
     final vault = ApiEncryptionRepository(api);
 

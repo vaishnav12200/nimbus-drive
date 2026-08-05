@@ -13,10 +13,17 @@ import 'package:nimbus_drive/features/auth/data/auth_repository.dart';
 import 'package:nimbus_drive/features/files/data/api_file_repository.dart';
 import 'package:nimbus_drive/features/files/models/file_query.dart';
 
+/// Target host. Defaults to a local dev server; point it at the deployed one
+/// with `--dart-define=NIMBUS_API_BASE=https://<host>/api`.
+const _baseUrl = String.fromEnvironment(
+  'NIMBUS_API_BASE',
+  defaultValue: 'http://127.0.0.1:8000/api',
+);
+
 void main() {
   test('round-trips against the live API', () async {
     final tokens = InMemoryTokenStore();
-    final api = ApiClient(tokens, baseUrl: 'http://127.0.0.1:8000/api');
+    final api = ApiClient(tokens, baseUrl: _baseUrl);
     final auth = ApiAuthRepository(api, tokens);
     final files = ApiFileRepository(api);
 

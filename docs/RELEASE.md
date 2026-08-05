@@ -51,11 +51,20 @@ The API host is compiled in, so it must be supplied:
 
 ```bash
 flutter build apk --release \
-  --dart-define=NIMBUS_API_BASE=https://your-server/api
+  --dart-define=NIMBUS_API_BASE=https://nimbus-drive-7lic.onrender.com/api
 ```
 
 Omitting it bakes in the `127.0.0.1` development default, which on a phone
 means the phone itself — the app installs and every request fails.
+
+A LAN address (`http://192.168.x.x:8000/api`) works only while the development
+machine is awake and the phone is on the same Wi-Fi, and needs that address
+added to `network_security_config.xml` since cleartext is otherwise refused.
+The deployed host avoids both problems.
+
+> Render's free tier spins the service down after roughly 15 minutes idle. The
+> first request after a pause can take 30–60 seconds while it wakes, which
+> reads as a hang rather than a cold start.
 
 | Target | Command | Notes |
 |---|---|---|
