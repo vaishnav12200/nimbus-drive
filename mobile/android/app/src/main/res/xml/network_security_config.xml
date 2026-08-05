@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android blocks cleartext HTTP by default from API 28, which is correct: this
+  app carries a bearer token and file bytes on every request.
+
+  The exception list below exists so a development backend on the local network
+  can be reached from a real phone. Everything not listed here still requires
+  HTTPS, so a misconfigured production host fails loudly rather than silently
+  sending tokens in the clear.
+
+  Before shipping to real users, point NIMBUS_API_BASE at an HTTPS host and
+  empty this list.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false"/>
+
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Loopback, and the address the Android emulator uses for the host. -->
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+
+        <!-- Development machine on the LAN. Replace when the address changes;
+             DHCP will reassign it eventually. -->
+        <domain includeSubdomains="false">192.168.1.42</domain>
+    </domain-config>
+</network-security-config>
