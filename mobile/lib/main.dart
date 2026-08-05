@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app/auth_gate.dart';
 import 'app/dependencies.dart';
@@ -13,6 +14,26 @@ import 'core/theme/app_theme.dart';
 const bool _useFakes = bool.fromEnvironment('NIMBUS_FAKE');
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Draw behind the status and navigation bars so the app fills the display on
+  // every phone, whatever shape its cutouts and gesture bar are. Individual
+  // screens already wrap their content in SafeArea, so nothing lands under a
+  // system bar — this only removes the letterboxing around them.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      // Transparent rather than tinted: a coloured bar over a near-black canvas
+      // reads as a seam, and Android 15 ignores the colour anyway.
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
+
   runApp(
     NimbusApp(
       dependencies: _useFakes ? Dependencies.fake() : Dependencies.live(),
