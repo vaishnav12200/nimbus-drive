@@ -22,3 +22,14 @@
 # Kotlin coroutines' internals are looked up by name in a few places.
 -keepclassmembers class kotlinx.coroutines.** { volatile <fields>; }
 -dontwarn kotlinx.coroutines.**
+
+# flutter_secure_storage reaches the Android keystore through androidx.security,
+# which resolves classes by name. Obfuscating them makes the very first call
+# throw — and that call happens during startup, before any screen can report it.
+-keep class androidx.security.crypto.** { *; }
+-dontwarn androidx.security.crypto.**
+-keep class com.it_nomads.fluttersecurestorage.** { *; }
+
+# file_picker resolves its Android delegate reflectively through the plugin
+# registrant.
+-keep class com.mr.flutter.plugin.filepicker.** { *; }

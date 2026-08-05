@@ -23,7 +23,7 @@ class AuthGate extends StatelessWidget {
       listenable: auth,
       builder: (context, _) {
         final child = switch (auth.status) {
-          AuthStatus.restoring => const AuthSplash(),
+          AuthStatus.restoring => AuthSplash(slow: auth.restoreIsSlow),
           AuthStatus.signedOut => WelcomeScreen(controller: auth),
           AuthStatus.signedIn => AppShell(
             // Keyed by account so switching users rebuilds every tab rather
